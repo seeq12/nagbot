@@ -8,7 +8,7 @@ from app.sqaws import Instance
 
 
 class TestNagbot(unittest.TestCase):
-    def setup_instance(self, state: str, stop_after: str = '', terminate_after: str = ''):
+    def setup_instance(self, state: str = 'running', stop_after: str = '', terminate_after: str = ''):
         return Instance(region_name='us-east-1',
                         instance_id='abc123',
                         state=state,
@@ -23,6 +23,35 @@ class TestNagbot(unittest.TestCase):
                         terminate_after=terminate_after,
                         contact='stephen',
                         nagbot_state='')
+
+    def test_taggable(self):
+        valid_date = '2019-01-01'
+        fully_tagged = self.setup_instance(stop_after=valid_date, terminate_after=valid_date)
+        warning_terminate = self.setup_instance(stop_after=valid_date,
+                                                terminate_after='Frigid froyo feeds Flo (Nagbot: Warned on 2019-01-01)')
+        unknown_stop = self.setup_instance(stop_after='Wonderful Willamette wombats', terminate_after=valid_date)
+        empty_stop = self.setup_instance(terminate_after=valid_date)
+        empty_terminate = self.setup_instance(stop_after=valid_date)
+        empty_stop_and_terminate = self.setup_instance()
+        unknown_terminate = self.setup_instance(stop_after=valid_date,
+                                                terminate_after='Pope Paul pleases proletariat people')
+
+        # These have something in stop_after and some kind of date for terminate_after
+        assert nagbot.is_taggable(fully_tagged) == False
+        assert nagbot.is_taggable(warning_terminate) == False
+        assert nagbot.is_taggable(unknown_stop) == False    # This one will get stopped due to the warning system
+
+        # stop_after should be filled in if it's not present
+        assert nagbot.is_taggable(empty_stop) == True
+
+        # terminate_after should be filled in if it's not present
+        assert nagbot.is_taggable(empty_terminate) == True
+
+        # stop_after and terminate_after should be filled in if they're not present
+        assert nagbot.is_taggable(empty_stop_and_terminate) == True
+
+        # terminate_after must have some kind of date in it
+        assert nagbot.is_taggable(unknown_terminate) == True
 
 
     def test_stoppable(self):
@@ -62,19 +91,20 @@ class TestNagbot(unittest.TestCase):
         assert nagbot.is_safe_to_stop(today_date_warned) == True
         assert nagbot.is_safe_to_stop(anything_warned) == True
 
-
     def test_terminatable(self):
         past_date = self.setup_instance(state='stopped', terminate_after='2019-01-01')
         today_date = self.setup_instance(state='stopped', terminate_after=nagbot.TODAY_YYYY_MM_DD)
 
         today_warning_str = ' (Nagbot: Warned on ' + nagbot.TODAY_YYYY_MM_DD + ')'
         past_date_warned = self.setup_instance(state='stopped', terminate_after='2019-01-01' + today_warning_str)
-        today_date_warned = self.setup_instance(state='stopped', terminate_after=nagbot.TODAY_YYYY_MM_DD + today_warning_str)
+        today_date_warned = self.setup_instance(state='stopped',
+                                                terminate_after=nagbot.TODAY_YYYY_MM_DD + today_warning_str)
         anything_warned = self.setup_instance(state='stopped', terminate_after='Yummy Udon Noodles' + today_warning_str)
 
         old_warning_str = ' (Nagbot: Warned on ' + nagbot.MIN_TERMINATION_WARNING_YYYY_MM_DD + ')'
         past_date_warned_days_ago = self.setup_instance(state='stopped', terminate_after='2019-01-01' + old_warning_str)
-        anything_warned_days_ago = self.setup_instance(state='stopped', terminate_after='Yummy Udon Noodles' + old_warning_str)
+        anything_warned_days_ago = self.setup_instance(state='stopped',
+                                                       terminate_after='Yummy Udon Noodles' + old_warning_str)
 
         wrong_state = self.setup_instance(state='running', terminate_after='2019-01-01')
         future_date = self.setup_instance(state='stopped', terminate_after='2050-01-01')
@@ -109,8 +139,6 @@ class TestNagbot(unittest.TestCase):
 
         # These instances can be terminated now
         assert nagbot.is_safe_to_terminate(past_date_warned_days_ago) == True
-
-
 
 
 if __name__ == '__main__':
