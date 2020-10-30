@@ -42,7 +42,7 @@ class Nagbot(object):
             message = 'I tagged the following instances to be stopped or terminated: '
             for i in instances_to_tag:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                message += '\n' + make_instance_summary(i) + ', Contact={}'.format(contact)
+                message += f'\n{make_instance_summary(i)}, Contact={contact}'
                 tag_instance(i)
             sqslack.send_message(channel, message)
         else:
@@ -52,8 +52,8 @@ class Nagbot(object):
         try:
             self._tag_instances_internal(channel)
         except Exception as e:
-            sqslack.send_message(channel, "Nagbot failed to run the 'tag_instances' command: " + str(e))
-            raise (e)
+            sqslack.send_message(channel, f"Nagbot failed to run the 'tag_instances' command: {str(e)}")
+            raise e
 
     def _notify_internal(self, channel):
         instances = sqaws.list_ec2_instances()
@@ -62,21 +62,21 @@ class Nagbot(object):
         num_total_instances = sum(1 for i in instances)
         running_monthly_cost = money_to_string(sum(i.monthly_price for i in instances))
 
-        summary_msg = "Hi, I'm Nagbot v{} :wink: My job is to make sure we don't forget about unwanted AWS servers and waste money!\n".format(__version__)
-        summary_msg += "We have {} running EC2 instances right now and {} total.\n".format(num_running_instances,
-                                                                                           num_total_instances)
-        summary_msg += "If we continue to run these instances all month, it would cost {}.\n" \
-            .format(running_monthly_cost)
+        summary_msg = f"Hi, I'm Nagbot v{__version__} :wink: My job is to make sure we don't forget " \
+                      f"about unwanted AWS servers and waste money!\n"
+        summary_msg += f"We have {num_running_instances} running EC2 instances right now " \
+                       f"and {num_total_instances} total.\n"
+        summary_msg += f"If we continue to run these instances all month, it would cost {running_monthly_cost}.\n"
 
         # Collect all of the data to a Google Sheet
         try:
             header = instances[0].to_header()
             body = [i.to_list() for i in instances]
             spreadsheet_url = gdocs.write_to_spreadsheet([header] + body)
-            summary_msg += '\nIf you want to see all the details, I wrote them to a spreadsheet at ' + spreadsheet_url
+            summary_msg += f'\nIf you want to see all the details, I wrote them to a spreadsheet at {spreadsheet_url}'
             print('Wrote data to Google sheet at URL ' + spreadsheet_url)
         except Exception as e:
-            print('Failed to write data to Google sheet: ' + str(e))
+            print(f'Failed to write data to Google sheet: {str(e)}')
 
         sqslack.send_message(channel, summary_msg)
 
@@ -86,11 +86,14 @@ class Nagbot(object):
 
         instances_to_terminate = get_terminatable_instances(instances)
         if len(instances_to_terminate) > 0:
-            terminate_msg = 'The following %d _stopped_ instances are due to be *TERMINATED*, based on the "Terminate after" tag:\n' % len(instances_to_terminate)
+            terminate_msg = f'The following {len(instances_to_terminate)} _stopped_ instances are due to ' \
+                            f'be *TERMINATED*, based on the "Terminate after" tag:\n'
             for i in instances_to_terminate:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                terminate_msg += make_instance_summary(i) + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
-                    .format(i.terminate_after, money_to_string(i.monthly_price), contact)
+                terminate_msg += f'{make_instance_summary(i)}, ' \
+                                 f'"Terminate after"={i.terminate_after}, ' \
+                                 f'Monthly Price={money_to_string(i.monthly_price)}, ' \
+                                 f'Contact={contact}\n'
                 sqaws.set_tag(i.region_name, i.instance_id, 'Terminate after',
                               parsing.add_warning_to_tag(i.terminate_after, TODAY_YYYY_MM_DD))
         else:
@@ -99,11 +102,14 @@ class Nagbot(object):
 
         instances_to_stop = get_stoppable_instances(instances)
         if len(instances_to_stop) > 0:
-            stop_msg = 'The following %d _running_ instances are due to be *STOPPED*, based on the "Stop after" tag:\n' % len(instances_to_stop)
+            stop_msg = f'The following {len(instances_to_stop)} _running_ instances are due to be *STOPPED*, ' \
+                       f'based on the "Stop after" tag:\n'
             for i in instances_to_stop:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                stop_msg += make_instance_summary(i) + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
-                    .format(i.stop_after, money_to_string(i.monthly_price), contact)
+                stop_msg += f'{make_instance_summary(i)}, ' \
+                            f'"Stop after"={i.stop_after}, ' \
+                            f'Monthly Price={money_to_string(i.monthly_price)}, ' \
+                            f'Contact={contact}\n'
                 sqaws.set_tag(i.region_name, i.instance_id, 'Stop after',
                               parsing.add_warning_to_tag(i.stop_after, TODAY_YYYY_MM_DD, replace=True))
         else:
@@ -114,8 +120,8 @@ class Nagbot(object):
         try:
             self._notify_internal(channel)
         except Exception as e:
-            sqslack.send_message(channel, "Nagbot failed to run the 'notify' command: " + str(e))
-            raise (e)
+            sqslack.send_message(channel, f"Nagbot failed to run the 'notify' command: {str(e)}")
+            raise e
 
     def _execute_internal(self, channel):
         instances = sqaws.list_ec2_instances()
@@ -132,8 +138,10 @@ class Nagbot(object):
             message = 'I terminated the following instances: '
             for i in instances_to_terminate:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                message = message + make_instance_summary(i) + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
-                    .format(i.terminate_after, money_to_string(i.monthly_price), contact)
+                message += f'{make_instance_summary(i)}, ' \
+                           f'"Terminate after"={i.terminate_after}, ' \
+                           f'Monthly Price={money_to_string(i.monthly_price)}, ' \
+                           f'Contact={contact}\n'
                 sqaws.terminate_instance(i.region_name, i.instance_id)
             sqslack.send_message(channel, message)
         else:
@@ -143,10 +151,12 @@ class Nagbot(object):
             message = 'I stopped the following instances: '
             for i in instances_to_stop:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                message = message + make_instance_summary(i) + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
-                    .format(i.stop_after, money_to_string(i.monthly_price), contact)
+                message += f'{make_instance_summary(i)}, ' \
+                           f'"Stop after"={i.stop_after}, ' \
+                           f'Monthly Price={money_to_string(i.monthly_price)}, ' \
+                           f'Contact={contact}\n'
                 sqaws.stop_instance(i.region_name, i.instance_id)
-                sqaws.set_tag(i.region_name, i.instance_id, 'Nagbot State', 'Stopped on ' + TODAY_YYYY_MM_DD)
+                sqaws.set_tag(i.region_name, i.instance_id, 'Nagbot State', f'Stopped on {TODAY_YYYY_MM_DD}')
             sqslack.send_message(channel, message)
         else:
             sqslack.send_message(channel, 'No instances were stopped today.')
@@ -155,29 +165,20 @@ class Nagbot(object):
         try:
             self._execute_internal(channel)
         except Exception as e:
-            sqslack.send_message(channel, "Nagbot failed to run the 'execute' command: " + str(e))
-            raise (e)
+            sqslack.send_message(channel, f"Nagbot failed to run the 'execute' command: {str(e)}")
+            raise e
 
 
 def get_taggable_instances(instances):
-    return list(i for i in instances if is_taggable(i))
-
-
-def is_taggable(instance):
-    return (not is_whitelisted(instance) and
-            (not instance.stop_after
-             or not instance.terminate_after
-             or (not parsing.parse_date_tag(instance.terminate_after).expiry_date
-                 and not parsing.parse_date_tag(instance.terminate_after).warning_date)))
+    return list(i for i in instances if
+                (not is_whitelisted(i) and (i.is_stop_after_tag_missing() or i.is_terminate_after_tag_missing())))
 
 
 def tag_instance(instance):
-    if not instance.stop_after:
+    if instance.is_stop_after_tag_missing():
         sqaws.set_tag(instance.region_name, instance.instance_id, 'Stop after',
                       AUTO_STOP_AFTER_DAY_YYYY_MM_DD)
-    if (not instance.terminate_after
-            or (not parsing.parse_date_tag(instance.terminate_after).expiry_date
-                and not parsing.parse_date_tag(instance.terminate_after).warning_date)):
+    if instance.is_terminate_after_tag_missing():
         sqaws.set_tag(instance.region_name, instance.instance_id, 'Terminate after',
                       AUTO_TERMINATE_AFTER_DAY_YYYY_MM_DD)
 
@@ -191,7 +192,7 @@ def is_stoppable(instance):
 
     return instance.state == 'running' and (
             (parsed_date.expiry_date is None)  # Treat unspecified "Stop after" dates as being in the past
-            or (TODAY_IS_WEEKEND and parsed_date.on_weekends) \
+            or (TODAY_IS_WEEKEND and parsed_date.on_weekends)
             or (TODAY_YYYY_MM_DD >= parsed_date.expiry_date))
 
 
@@ -223,30 +224,29 @@ def money_to_string(str):
 
 def is_safe_to_stop(instance):
     warning_date = parsing.parse_date_tag(instance.stop_after).warning_date
-    return is_stoppable(instance) \
-           and warning_date is not None and warning_date <= TODAY_YYYY_MM_DD;
+    return is_stoppable(instance) and warning_date is not None and warning_date <= TODAY_YYYY_MM_DD
 
 
 def is_safe_to_terminate(instance):
     warning_date = parsing.parse_date_tag(instance.terminate_after).warning_date
-    return is_terminatable(instance) \
-           and warning_date is not None and warning_date <= MIN_TERMINATION_WARNING_YYYY_MM_DD;
+    return is_terminatable(instance) and warning_date is not None and warning_date <= MIN_TERMINATION_WARNING_YYYY_MM_DD
 
 
 def make_instance_summary(instance):
     instance_id = instance.instance_id
     instance_url = url_from_instance_id(instance.region_name, instance_id)
-    link = '<{}|{}>'.format(instance_url, instance.name)
+    link = f'<{instance_url}|{instance.name}>'
     if instance.reason:
-        state = 'State=({}, "{}")'.format(instance.state, instance.reason)
+        state = f'State=({instance.state}, "{instance.reason}")'
     else:
-        state = 'State={}'.format(instance.state)
-    line = '{}, {}, Type={}'.format(link, state, instance.instance_type)
+        state = f'State={instance.state}'
+    line = f'{link}, {state}, Type={instance.instance_type}'
     return line
 
 
 def url_from_instance_id(region_name, instance_id):
-    return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#Instances:search={}'.format(region_name, region_name, instance_id)
+    return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home' \
+           f'?region={region_name}#Instances:search={instance_id}'
 
 
 def main(args):
@@ -270,7 +270,7 @@ def main(args):
     elif mode.lower() == 'execute':
         nagbot.execute(channel)
     else:
-        print('Unexpected mode "%s", should be "tag_instances", "notify", or "execute"' % mode)
+        print(f'Unexpected mode "{mode}", should be "tag_instances", "notify", or "execute"')
         sys.exit(1)
 
 
