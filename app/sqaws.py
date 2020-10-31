@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import awspricing
 import boto3
+from . import parsing
 
 os.environ['AWSPRICING_USE_CACHE'] = '1'
 HOURS_IN_A_MONTH = 730
@@ -67,6 +68,14 @@ class Instance:
                 self.instance_type,
                 self.reason,
                 self.operating_system]
+
+    def is_stop_after_tag_missing(self):
+        return not self.stop_after
+
+    def is_terminate_after_tag_missing(self):
+        return (not self.terminate_after or
+                (not parsing.parse_date_tag(self.terminate_after).expiry_date
+                 and not parsing.parse_date_tag(self.terminate_after).warning_date))
 
 
 # Get a list of model classes representing important properties of EC2 instances
@@ -147,7 +156,7 @@ def lookup_monthly_price(region_name: str, instance_type: str, operating_system:
 def estimate_monthly_ebs_storage_price(region_name: str, instance_id: str) -> float:
     ec2_resource = boto3.resource('ec2', region_name=region_name)
     total_gb = sum([v.size for v in ec2_resource.Instance(instance_id).volumes.all()])
-    return total_gb * 0.1 # Assume EBS costs $0.1/GB/month, true as of June 2019 for gp2 type storage
+    return total_gb * 0.1  # Assume EBS costs $0.1/GB/month, true as of June 2019 for gp2 type storage
 
 
 # Set a tag on an instance
