@@ -10,7 +10,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: mr-smithers-excellent/docker-build-push@v5
       with:
-        image: seeq.jfrog.io/nagbot-docker-dev-local
+        image: nagbot-docker-dev-local/nagbot
         addTimestamp: true
         registry: seeq.jfrog.io
         dockerfile: Dockerfile
