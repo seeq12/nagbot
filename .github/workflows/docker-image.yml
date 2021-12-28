@@ -1,0 +1,18 @@
+name: Docker Image
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: mr-smithers-excellent/docker-build-push@v5
+      with:
+        image: seeq.jfrog.io/nagbot-docker-dev-local
+        addTimestamp: true
+        registry: seeq.jfrog.io
+        dockerfile: Dockerfile
+        username: ${{ secrets.JFROG_USERNAME }}
+        password: ${{ secrets.JFROG_TOKEN }}
