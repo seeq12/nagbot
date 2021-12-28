@@ -1,0 +1,21 @@
+name: Docker Image CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2.3.1
+    - run: python -m unittest
+    - uses: mr-smithers-excellent/docker-build-push@v5
+      with:
+        image: seeq.jfrog.io/nagbot-docker-dev-local/nagbot
+        addTimestamp: true
+        registry: seeq.jfrog.io
+        dockerfile: Dockerfile
+        username: ${{ secrets.JFROG_USERNAME }}
+        password: ${{ secrets.JFROG_TOKEN }}
