@@ -96,5 +96,21 @@ def test_terminate_instance_exception(mock_client):
     mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[instance_id])
 
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.parametrize('stop_terminate_dict, expected_stop_result, expected_terminate_result', [
+    ({'stop after': '2022-05-10', 'terminate after': '2022-05-11'}, '2022-05-10', '2022-05-11'),
+    ({'Stop After': '2030-07-23', 'Terminate After': '2050-08-10'}, '2030-07-23', '2050-08-10'),
+    ({'STOP AFTER': '2021-03-04', 'TERMINATE AFTER': '2022-09-12'}, '2021-03-04', '2022-09-12'),
+    ({'stop_after': '2022-05-10', 'terminate_after': '2022-05-11'}, '2022-05-10', '2022-05-11'),
+    ({'Stop_After': '2030-07-23', 'Terminate_After': '2050-08-10'}, '2030-07-23', '2050-08-10'),
+    ({'STOP_AFTER': '2021-03-04', 'TERMINATE_AFTER': '2022-09-12'}, '2021-03-04', '2022-09-12'),
+    ({'stopafter': '2022-05-10', 'terminateafter': '2022-05-11'}, '2022-05-10', '2022-05-11'),
+    ({'StopAfter': '2030-07-23', 'TerminateAfter': '2050-08-10'}, '2030-07-23', '2050-08-10'),
+    ({'STOPAFTER': '2021-03-04', 'TERMINATEAFTER': '2022-09-12'}, '2021-03-04', '2022-09-12'),
+    ({'': '2021-03-04', 'terminate.after': '2022-09-12'}, '', '2022-09-12'),
+    ({'stop.after': '2021-03-04', '': '2022-09-12'}, '2021-03-04', '')
+])
+def test_stop_and_terminate_after(stop_terminate_dict, expected_stop_result,
+                                  expected_terminate_result):
+    stop_terminate = app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
+    assert(stop_terminate[0] == expected_stop_result)
+    assert(stop_terminate[1] == expected_terminate_result)
