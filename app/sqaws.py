@@ -108,9 +108,7 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
     monthly_storage_price = estimate_monthly_ebs_storage_price(region_name, instance_dict['InstanceId'])
     monthly_price = (monthly_server_price + monthly_storage_price) if state == 'running' else monthly_storage_price
 
-    stop_terminate = get_stop_and_terminate_after(tags)
-    stop_after = stop_terminate[0]
-    terminate_after = stop_terminate[1]
+    stop_after, terminate_after = get_stop_and_terminate_after(tags)
     contact = tags.get('Contact', '')
     nagbot_state = tags.get('Nagbot State', '')
 
@@ -132,14 +130,14 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
 
 
 # Find 'stop after' and 'terminate after' fields in an EC2 instance, regardless of formatting
-def get_stop_and_terminate_after(tags: dict) -> list:
-    stop_terminate = ['', '']
-    for key in tags:
-        if (key.lower()).startswith('stop'):
-            stop_terminate[0] = tags.get(key)
-        if (key.lower()).startswith('terminate'):
-            stop_terminate[1] = tags.get(key)
-    return stop_terminate
+def get_stop_and_terminate_after(tags: dict) -> tuple[str, str]:
+    stop_after, terminate_after = '', ''
+    for key, value in tags.items():
+        if (key.lower()).startswith('stop') and 'after' in (key.lower()):
+            stop_after = value
+        if (key.lower()).startswith('terminate') and 'after' in (key.lower()):
+            terminate_after = value
+    return stop_after, terminate_after
 
 
 # Convert the tags list returned from the EC2 API to a dictionary from tag name to tag value
