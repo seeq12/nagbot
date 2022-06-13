@@ -6,8 +6,8 @@ from app.sqaws import Instance
 
 class TestNagbot(unittest.TestCase):
     @staticmethod
-    def setup_instance(state: str, stop_after: str = '', terminate_after: str = '', stop_after_str: str = '',
-                       terminate_after_str: str = ''):
+    def setup_instance(state: str, stop_after: str = '', terminate_after: str = '',
+                       stop_after_tag_name: str = '', terminate_after_tag_name: str = ''):
         return Instance(region_name='us-east-1',
                         instance_id='abc123',
                         state=state,
@@ -23,8 +23,8 @@ class TestNagbot(unittest.TestCase):
                         contact='stephen',
                         nagbot_state='',
                         eks_nodegroup_name='',
-                        stop_after_str=stop_after_str,
-                        terminate_after_str=terminate_after_str)
+                        stop_after_tag_name=stop_after_tag_name,
+                        terminate_after_tag_name=terminate_after_tag_name)
 
     def test_stoppable(self):
         past_date = self.setup_instance(state='running', stop_after='2019-01-01')
@@ -121,20 +121,20 @@ class TestNagbot(unittest.TestCase):
         assert nagbot.is_safe_to_terminate(past_date_warned_days_ago) is True
 
     def test_instance_stop_terminate_str(self):
-        lowercase_instance = self.setup_instance(state='running', stop_after_str='stopafter',
-                                                 terminate_after_str='terminateafter')
-        uppercase_instance = self.setup_instance(state='running', stop_after_str='STOPAFTER',
-                                                 terminate_after_str='TERMINATEAFTER')
-        mixed_case_instance = self.setup_instance(state='running', stop_after_str='StopAfter',
-                                                  terminate_after_str='TerminateAfter')
+        lowercase_instance = self.setup_instance(state='running', stop_after_tag_name='stopafter',
+                                                 terminate_after_tag_name='terminateafter')
+        uppercase_instance = self.setup_instance(state='running', stop_after_tag_name='STOPAFTER',
+                                                 terminate_after_tag_name='TERMINATEAFTER')
+        mixed_case_instance = self.setup_instance(state='running', stop_after_tag_name='StopAfter',
+                                                  terminate_after_tag_name='TerminateAfter')
 
         # Ensure stop_after_str and terminate_after_str fields are correct in each instance
-        assert lowercase_instance.stop_after_str == 'stopafter'
-        assert lowercase_instance.terminate_after_str == 'terminateafter'
-        assert uppercase_instance.stop_after_str == 'STOPAFTER'
-        assert uppercase_instance.terminate_after_str == 'TERMINATEAFTER'
-        assert mixed_case_instance.stop_after_str == 'StopAfter'
-        assert mixed_case_instance.terminate_after_str == 'TerminateAfter'
+        assert lowercase_instance.stop_after_tag_name == 'stopafter'
+        assert lowercase_instance.terminate_after_tag_name == 'terminateafter'
+        assert uppercase_instance.stop_after_tag_name == 'STOPAFTER'
+        assert uppercase_instance.terminate_after_tag_name == 'TERMINATEAFTER'
+        assert mixed_case_instance.stop_after_tag_name == 'StopAfter'
+        assert mixed_case_instance.terminate_after_tag_name == 'TerminateAfter'
 
 
 if __name__ == '__main__':

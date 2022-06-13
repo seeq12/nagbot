@@ -1,4 +1,3 @@
-import unittest
 from unittest.mock import patch
 
 import app.sqaws
@@ -97,7 +96,7 @@ def test_terminate_instance_exception(mock_client):
 
 
 @pytest.mark.parametrize('stop_terminate_dict, expected_stop_result, expected_terminate_result, '
-                         'expected_stop_str, expected_terminate_str', [
+                         'expected_stop_tag_name, expected_terminate_tag_name', [
                              ({'stop after': '2022-05-10', 'terminate after': '2022-05-11'}, '2022-05-10', '2022-05-11',
                               'stop after', 'terminate after'),
                              ({'Stop After': '2030-07-23', 'Terminate After': '2050-08-10'}, '2030-07-23', '2050-08-10',
@@ -121,17 +120,20 @@ def test_terminate_instance_exception(mock_client):
                              ({'stop.after': '2021-03-04', '': '2022-09-12'}, '2021-03-04', '', 'stop.after', '')
                          ])
 def test_stop_and_terminate_after(stop_terminate_dict, expected_stop_result,
-                                  expected_terminate_result, expected_stop_str, expected_terminate_str):
-    stop_after_str, terminate_after_str = app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
-    if stop_after_str == '':
-        stop_after = ''
+                                  expected_terminate_result, expected_stop_tag_name, expected_terminate_tag_name):
+    stop_after_tag_name, terminate_after_tag_name = app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
+    stop_after = stop_terminate_dict.get(stop_after_tag_name, '')
+    terminate_after = stop_terminate_dict.get(terminate_after_tag_name, '')
+
+    assert stop_after == expected_stop_result
+    assert terminate_after == expected_terminate_result
+
+    # Ensure tag name is set to default if empty string is passed in, otherwise should be the specified tag name
+    if expected_stop_tag_name == '':
+        assert stop_after_tag_name == 'StopAfter'
     else:
-        stop_after = stop_terminate_dict.get(stop_after_str)
-    if terminate_after_str == '':
-        terminate_after = ''
+        assert stop_after_tag_name == expected_stop_tag_name
+    if expected_terminate_tag_name == '':
+        assert terminate_after_tag_name == 'TerminateAfter'
     else:
-        terminate_after = stop_terminate_dict.get(terminate_after_str)
-    assert (stop_after == expected_stop_result)
-    assert (terminate_after == expected_terminate_result)
-    assert (stop_after_str == expected_stop_str)
-    assert (terminate_after_str == expected_terminate_str)
+        assert terminate_after_tag_name == expected_terminate_tag_name
