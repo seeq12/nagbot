@@ -96,21 +96,42 @@ def test_terminate_instance_exception(mock_client):
     mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[instance_id])
 
 
-@pytest.mark.parametrize('stop_terminate_dict, expected_stop_result, expected_terminate_result', [
-    ({'stop after': '2022-05-10', 'terminate after': '2022-05-11'}, '2022-05-10', '2022-05-11'),
-    ({'Stop After': '2030-07-23', 'Terminate After': '2050-08-10'}, '2030-07-23', '2050-08-10'),
-    ({'STOP AFTER': '2021-03-04', 'TERMINATE AFTER': '2022-09-12'}, '2021-03-04', '2022-09-12'),
-    ({'stop_after': '2022-05-10', 'terminate_after': '2022-05-11'}, '2022-05-10', '2022-05-11'),
-    ({'Stop_After': '2030-07-23', 'Terminate_After': '2050-08-10'}, '2030-07-23', '2050-08-10'),
-    ({'STOP_AFTER': '2021-03-04', 'TERMINATE_AFTER': '2022-09-12'}, '2021-03-04', '2022-09-12'),
-    ({'stopafter': '2022-05-10', 'terminateafter': '2022-05-11'}, '2022-05-10', '2022-05-11'),
-    ({'StopAfter': '2030-07-23', 'TerminateAfter': '2050-08-10'}, '2030-07-23', '2050-08-10'),
-    ({'STOPAFTER': '2021-03-04', 'TERMINATEAFTER': '2022-09-12'}, '2021-03-04', '2022-09-12'),
-    ({'': '2021-03-04', 'terminate.after': '2022-09-12'}, '', '2022-09-12'),
-    ({'stop.after': '2021-03-04', '': '2022-09-12'}, '2021-03-04', '')
-])
+@pytest.mark.parametrize('stop_terminate_dict, expected_stop_result, expected_terminate_result, '
+                         'expected_stop_str, expected_terminate_str', [
+                             ({'stop after': '2022-05-10', 'terminate after': '2022-05-11'}, '2022-05-10', '2022-05-11',
+                              'stop after', 'terminate after'),
+                             ({'Stop After': '2030-07-23', 'Terminate After': '2050-08-10'}, '2030-07-23', '2050-08-10',
+                              'Stop After', 'Terminate After'),
+                             ({'STOP AFTER': '2021-03-04', 'TERMINATE AFTER': '2022-09-12'}, '2021-03-04', '2022-09-12',
+                              'STOP AFTER', 'TERMINATE AFTER'),
+                             ({'stop_after': '2022-05-10', 'terminate_after': '2022-05-11'}, '2022-05-10', '2022-05-11',
+                              'stop_after', 'terminate_after'),
+                             ({'Stop_After': '2030-07-23', 'Terminate_After': '2050-08-10'}, '2030-07-23', '2050-08-10',
+                              'Stop_After', 'Terminate_After'),
+                             ({'STOP_AFTER': '2021-03-04', 'TERMINATE_AFTER': '2022-09-12'}, '2021-03-04', '2022-09-12',
+                              'STOP_AFTER', 'TERMINATE_AFTER'),
+                             ({'stopafter': '2022-05-10', 'terminateafter': '2022-05-11'}, '2022-05-10', '2022-05-11',
+                              'stopafter', 'terminateafter'),
+                             ({'StopAfter': '2030-07-23', 'TerminateAfter': '2050-08-10'}, '2030-07-23', '2050-08-10',
+                              'StopAfter', 'TerminateAfter'),
+                             ({'STOPAFTER': '2021-03-04', 'TERMINATEAFTER': '2022-09-12'}, '2021-03-04', '2022-09-12',
+                              'STOPAFTER', 'TERMINATEAFTER'),
+                             ({'': '2021-03-04', 'terminate.after': '2022-09-12'}, '', '2022-09-12', '',
+                              'terminate.after'),
+                             ({'stop.after': '2021-03-04', '': '2022-09-12'}, '2021-03-04', '', 'stop.after', '')
+                         ])
 def test_stop_and_terminate_after(stop_terminate_dict, expected_stop_result,
-                                  expected_terminate_result):
-    stop_terminate = app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
-    assert(stop_terminate[0] == expected_stop_result)
-    assert(stop_terminate[1] == expected_terminate_result)
+                                  expected_terminate_result, expected_stop_str, expected_terminate_str):
+    stop_after_str, terminate_after_str = app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
+    if stop_after_str == '':
+        stop_after = ''
+    else:
+        stop_after = stop_terminate_dict.get(stop_after_str)
+    if terminate_after_str == '':
+        terminate_after = ''
+    else:
+        terminate_after = stop_terminate_dict.get(terminate_after_str)
+    assert (stop_after == expected_stop_result)
+    assert (terminate_after == expected_terminate_result)
+    assert (stop_after_str == expected_stop_str)
+    assert (terminate_after_str == expected_terminate_str)

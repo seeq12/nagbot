@@ -32,6 +32,8 @@ class Instance:
     monthly_price: float
     monthly_server_price: float
     monthly_storage_price: float
+    stop_after_str: str
+    terminate_after_str: str
 
     @staticmethod
     def to_header() -> [str]:
@@ -108,7 +110,15 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
     monthly_storage_price = estimate_monthly_ebs_storage_price(region_name, instance_dict['InstanceId'])
     monthly_price = (monthly_server_price + monthly_storage_price) if state == 'running' else monthly_storage_price
 
-    stop_after, terminate_after = get_stop_and_terminate_after(tags)
+    stop_after_str, terminate_after_str = get_stop_and_terminate_after(tags)
+    if stop_after_str == '':
+        stop_after = ''
+    else:
+        stop_after = tags.get(stop_after_str)
+    if terminate_after_str == '':
+        terminate_after = ''
+    else:
+        terminate_after = tags.get(terminate_after_str)
     contact = tags.get('Contact', '')
     nagbot_state = tags.get('Nagbot State', '')
 
@@ -126,7 +136,9 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
                     stop_after=stop_after,
                     terminate_after=terminate_after,
                     contact=contact,
-                    nagbot_state=nagbot_state)
+                    nagbot_state=nagbot_state,
+                    stop_after_str=stop_after_str,
+                    terminate_after_str=terminate_after_str)
 
 
 # Find 'stop after' and 'terminate after' fields in an EC2 instance, regardless of formatting
@@ -134,9 +146,9 @@ def get_stop_and_terminate_after(tags: dict) -> tuple[str, str]:
     stop_after, terminate_after = '', ''
     for key, value in tags.items():
         if (key.lower()).startswith('stop') and 'after' in (key.lower()):
-            stop_after = value
+            stop_after = key
         if (key.lower()).startswith('terminate') and 'after' in (key.lower()):
-            terminate_after = value
+            terminate_after = key
     return stop_after, terminate_after
 
 
