@@ -132,7 +132,7 @@ class Nagbot(object):
                 message = message + make_instance_summary(i) + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
                     .format(i.stop_after, money_to_string(i.monthly_price), contact)
                 sqaws.stop_instance(i.region_name, i.instance_id, dryrun=dryrun)
-                sqaws.set_tag(i.region_name, i.instance_id, 'Nagbot State', 'Stopped on ' + TODAY_YYYY_MM_DD,
+                sqaws.set_tag(i.region_name, i.instance_id, i.nagbot_state_tag_name, 'Stopped on ' + TODAY_YYYY_MM_DD,
                               dryrun=dryrun)
             sqslack.send_message(channel, message)
         else:

@@ -24,7 +24,8 @@ class TestNagbot(unittest.TestCase):
                         nagbot_state='',
                         eks_nodegroup_name='',
                         stop_after_tag_name=stop_after_tag_name,
-                        terminate_after_tag_name=terminate_after_tag_name)
+                        terminate_after_tag_name=terminate_after_tag_name,
+                        nagbot_state_tag_name='NagbotState')
 
     def test_stoppable(self):
         past_date = self.setup_instance(state='running', stop_after='2019-01-01')

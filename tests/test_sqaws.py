@@ -121,7 +121,8 @@ def test_terminate_instance_exception(mock_client):
                          ])
 def test_stop_and_terminate_after(stop_terminate_dict, expected_stop_result,
                                   expected_terminate_result, expected_stop_tag_name, expected_terminate_tag_name):
-    stop_after_tag_name, terminate_after_tag_name = app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
+    stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = \
+        app.sqaws.get_stop_and_terminate_after(stop_terminate_dict)
     stop_after = stop_terminate_dict.get(stop_after_tag_name, '')
     terminate_after = stop_terminate_dict.get(terminate_after_tag_name, '')
 
@@ -137,3 +138,4 @@ def test_stop_and_terminate_after(stop_terminate_dict, expected_stop_result,
         assert terminate_after_tag_name == 'TerminateAfter'
     else:
         assert terminate_after_tag_name == expected_terminate_tag_name
+    assert nagbot_state_tag_name == 'NagbotState'
