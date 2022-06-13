@@ -111,7 +111,7 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
     monthly_storage_price = estimate_monthly_ebs_storage_price(region_name, instance_dict['InstanceId'])
     monthly_price = (monthly_server_price + monthly_storage_price) if state == 'running' else monthly_storage_price
 
-    stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = get_stop_and_terminate_after(tags)
+    stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = get_tag_names(tags)
     stop_after = tags.get(stop_after_tag_name, '')
     terminate_after = tags.get(terminate_after_tag_name, '')
     contact = tags.get('Contact', '')
@@ -137,8 +137,8 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
                     nagbot_state_tag_name=nagbot_state_tag_name)
 
 
-# Find 'stop after' and 'terminate after' fields in an EC2 instance, regardless of formatting
-def get_stop_and_terminate_after(tags: dict) -> tuple[str, str, str]:
+# Get 'stop after', 'terminate after', and 'Nagbot state' tag names in an EC2 instance, regardless of formatting
+def get_tag_names(tags: dict) -> tuple[str, str, str]:
     stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = 'StopAfter', 'TerminateAfter', 'NagbotState'
     for key, value in tags.items():
         if (key.lower()).startswith('stop') and 'after' in (key.lower()):
