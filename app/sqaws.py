@@ -138,7 +138,7 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
 
 
 # Get 'stop after', 'terminate after', and 'Nagbot state' tag names in an EC2 instance, regardless of formatting
-def get_tag_names(tags: dict) -> tuple[str, str, str]:
+def get_tag_names(tags: dict) -> tuple:
     stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = 'StopAfter', 'TerminateAfter', 'NagbotState'
     for key, value in tags.items():
         if (key.lower()).startswith('stop') and 'after' in (key.lower()):

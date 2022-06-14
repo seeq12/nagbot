@@ -115,12 +115,12 @@ def test_terminate_instance_exception(mock_client):
                               '2030-07-23', '2050-08-10', 'running', 'StopAfter', 'TerminateAfter', 'NagbotState'),
                              ({'STOPAFTER': '2021-03-04', 'TERMINATEAFTER': '2022-09-12', 'NAGBOTSTATE': 'running'},
                               '2021-03-04', '2022-09-12', 'running', 'STOPAFTER', 'TERMINATEAFTER', 'NAGBOTSTATE'),
-                             ({'': '2021-03-04', 'TerminateAfter': '2022-09-12', 'NagbotState': 'running'},
-                              '', '2022-09-12', 'running', 'StopAfter', 'TerminateAfter', 'NagbotState'),
-                             ({'StopAfter': '2021-03-04', '': '2022-09-12', 'NagbotState': 'running'},
-                              '2021-03-04', '', 'running', 'StopAfter', 'TerminateAfter', 'NagbotState'),
-                             ({'StopAfter': '2021-03-04', 'TerminateAfter': '2022-09-12', '': 'running'},
-                              '2021-03-04', '2022-09-12', '', 'StopAfter', 'TerminateAfter', 'NagbotState')
+                             ({'TerminateAfter': '2022-09-12', 'NagbotState': 'running'}, '', '2022-09-12', 'running',
+                              'StopAfter', 'TerminateAfter', 'NagbotState'),
+                             ({'StopAfter': '2021-03-04', 'NagbotState': 'running'}, '2021-03-04', '', 'running',
+                              'StopAfter', 'TerminateAfter', 'NagbotState'),
+                             ({'StopAfter': '2021-03-04', 'TerminateAfter': '2022-09-12'}, '2021-03-04', '2022-09-12',
+                              '', 'StopAfter', 'TerminateAfter', 'NagbotState')
                          ])
 def test_get_tag_names(test_dict, expected_stop_result, expected_terminate_result, expected_nagbot_state,
                        expected_stop_tag_name, expected_terminate_tag_name, expected_nagbot_state_tag_name):
