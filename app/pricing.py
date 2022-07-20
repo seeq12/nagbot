@@ -63,7 +63,7 @@ class PricingData:
 
                 self.cache[cache_key] = hourly * HOURS_IN_A_MONTH
             return self.cache[cache_key]
-        except:  # what to do about this?
+        except:
             print(f'> lookup_monthly_price("{region_name}", "{instance_type}", "{operating_system}")')
             traceback.print_exc()
             raise
