@@ -269,7 +269,7 @@ def estimate_monthly_ebs_storage_price(region_name: str, instance_id: str) -> fl
 
 
 def estimate_monthly_volume_price(volume_type: str, size: float, iops: float, throughput: float) -> float:
-    if 'gp3' in volume_type:
+    if 'gp3' in volume_type:  # gp3 type storage depends on storage, IOPS, and throughput
         cost = size * 0.08
         if iops > 3000:
             provisioned_iops = iops - 3000
@@ -278,7 +278,7 @@ def estimate_monthly_volume_price(volume_type: str, size: float, iops: float, th
             provisioned_throughput = throughput - 125
             cost = cost + (provisioned_throughput * 0.04)
         return cost
-    else:
+    else:  # Assume EBS costs $0.1/GB/month, true as of Dec 2021 for gp2 type storage
         return size * 0.1
 
 
