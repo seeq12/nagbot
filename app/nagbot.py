@@ -37,8 +37,7 @@ class Nagbot(object):
     @staticmethod
     def notify_internal(channel, dryrun):
         pricing = PricingData()
-        instances = sqaws.list_ec2_instances(pricing)
-        volumes = sqaws.list_ebs_volumes()
+        instances, volumes = sqaws.list_ec2_resources(pricing)
 
         num_running_instances = sum(1 for i in instances if i.state == 'running')
         num_total_instances = len(instances)
@@ -128,8 +127,7 @@ class Nagbot(object):
     @staticmethod
     def execute_internal(channel, dryrun):
         pricing = PricingData()
-        instances = sqaws.list_ec2_instances(pricing)
-        volumes = sqaws.list_ebs_volumes()
+        instances, volumes = sqaws.list_ec2_resources(pricing)
 
         # Only terminate instances which still meet the criteria for terminating, AND were warned several times
         instances_to_terminate = get_terminatable_instances(instances)

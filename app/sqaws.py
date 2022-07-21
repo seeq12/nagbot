@@ -137,6 +137,34 @@ def list_ec2_instances(pricing: PricingData):
     return instances
 
 
+# Get a list of model classes representing important properties of EC2 resources
+def list_ec2_resources(pricing: PricingData) -> tuple:
+    ec2 = boto3.client('ec2', region_name='us-west-2')
+
+    describe_regions_response = ec2.describe_regions()
+    instances = []
+    volumes = []
+
+    print('Checking all AWS regions...')
+    for region in describe_regions_response['Regions']:
+        region_name = region['RegionName']
+        ec2 = boto3.client('ec2', region_name=region_name)
+
+        describe_instances_response = ec2.describe_instances()
+        describe_volumes_response = ec2.describe_volumes()
+
+        for reservation in describe_instances_response['Reservations']:
+            for instance_dict in reservation['Instances']:
+                instance = build_instance_model(pricing, region_name, instance_dict)
+                instances.append(instance)
+
+        for volume_dict in describe_volumes_response['Volumes']:
+            volume = build_volume_model(region_name, volume_dict)
+            volumes.append(volume)
+
+    return instances, volumes
+
+
 # Get a list of model classes representing important properties of EBS volumes
 def list_ebs_volumes():
     ebs = boto3.client('ec2', region_name='us-west-2')
@@ -169,7 +197,7 @@ def build_instance_model(pricing: PricingData, region_name: str, instance_dict: 
     operating_system = ('Windows' if platform == 'windows' else 'Linux')
 
     monthly_server_price = pricing.lookup_monthly_price(region_name, instance_type, operating_system)
-    monthly_storage_price = estimate_monthly_ebs_storage_price(region_name, instance_dict['InstanceId'])
+    monthly_storage_price = estimate_monthly_volume_price(region_name, instance_dict['InstanceId'], 'none', 0, 0, 0)
     monthly_price = (monthly_server_price + monthly_storage_price) if state == 'running' else monthly_storage_price
 
     stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = get_tag_names(tags)
@@ -212,7 +240,7 @@ def build_volume_model(region_name: str, volume_dict: dict) -> Volume:
     iops = volume_dict.get('Iops', '')
     throughput = volume_dict.get('Throughput', '')
 
-    monthly_price = estimate_monthly_volume_price(volume_type, size, iops, throughput)
+    monthly_price = estimate_monthly_volume_price(region_name, volume_id, volume_type, size, iops, throughput)
 
     terminate_after_tag_name = 'TerminateAfter'
     for key, value in tags.items():
@@ -265,7 +293,13 @@ def estimate_monthly_ebs_storage_price(region_name: str, instance_id: str) -> fl
 
 
 # Estimate the monthly cost of an EBS storage volume; pricing estimations based on region us-east-1
-def estimate_monthly_volume_price(volume_type: str, size: float, iops: float, throughput: float) -> float:
+def estimate_monthly_volume_price(region_name: str, instance_id: str, volume_type: str, size: float, iops: float,
+                                  throughput: float) -> float:
+    if instance_id.startswith('i'):
+        ec2_resource = boto3.resource('ec2', region_name=region_name)
+        total_gb = sum([v.size for v in ec2_resource.Instance(instance_id).volumes.all()])
+        return total_gb * 0.1  # Assume EBS costs $0.1/GB/month when calculating for attached volumes
+
     if 'gp3' in volume_type:  # gp3 type storage depends on storage, IOPS, and throughput
         cost = size * 0.08
         if iops > 3000:
