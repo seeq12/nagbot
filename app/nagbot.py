@@ -49,7 +49,7 @@ class Nagbot(object):
         running_volumes_monthly_cost = money_to_string(sum(v.monthly_price for v in volumes if v.state == 'available'))
 
         summary_msg = "Hi, I'm Nagbot v{} :wink: ".format(__version__)
-        summary_msg += "My job is to make sure we don't forget about unwanted AWS servers & volumes and waste money!\n"
+        summary_msg += "My job is to make sure we don't forget about unwanted AWS resources and waste money!\n"
         summary_msg += "We have {} running EC2 instances right now and {} total.\n".format(num_running_instances,
                                                                                            num_total_instances)
         summary_msg += "If we continue to run these instances all month, it would cost {}.\n" \
@@ -73,7 +73,7 @@ class Nagbot(object):
 
         # From here on, filter out excluded instances
         instances = sorted((i for i in instances if not is_excluded(i)), key=lambda i: i.name)
-        volumes = sorted((v for v in volumes if not is_excluded_volume(v)), key=lambda v: v.name)
+        volumes = sorted((v for v in volumes), key=lambda v: v.name)
 
         instances_to_terminate = get_terminatable_instances(instances)
         if len(instances_to_terminate) > 0:
@@ -228,20 +228,9 @@ def is_deletable(volume):
 
 # Some instances are excluded from stop or terminate actions. These won't show up as recommendations to stop/terminate.
 def is_excluded(instance: Instance):
-    for regex in [r'bam::.*bamboo']:
-        if re.fullmatch(regex, instance.name) is not None:
-            return True
     if len(instance.eks_nodegroup_name) > 0:
         return True
     return False
-
-
-# Some volumes are excluded from terminate actions. These won't show up as recommendations to terminate.
-def is_excluded_volume(volume: Volume):
-    for regex in [r'bam::.*bamboo']:
-        if re.fullmatch(regex, volume.name) is not None:
-            return True
-        return False
 
 
 def is_safe_to_stop(instance, is_weekend=TODAY_IS_WEEKEND):
@@ -255,7 +244,6 @@ def is_safe_to_terminate(instance):
     return is_terminatable(instance) and warning_date is not None and warning_date <= MIN_TERMINATION_WARNING_YYYY_MM_DD
 
 
-# min termination warning for volumes?
 def is_safe_to_delete(volume):
     warning_date = parsing.parse_date_tag(volume.terminate_after).warning_date
     return is_deletable(volume) and warning_date is not None and warning_date <= MIN_TERMINATION_WARNING_YYYY_MM_DD

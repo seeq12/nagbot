@@ -124,10 +124,8 @@ def list_ec2_instances(pricing: PricingData):
 
     describe_regions_response = ec2.describe_regions()
     instances = []
-    i = 1
     print('Checking all AWS regions...')
     for region in describe_regions_response['Regions']:
-        # print('region = ' + str(region))
         region_name = region['RegionName']
         ec2 = boto3.client('ec2', region_name=region_name)
         describe_instances_response = ec2.describe_instances()
@@ -135,8 +133,7 @@ def list_ec2_instances(pricing: PricingData):
             for instance_dict in reservation['Instances']:
                 instance = build_instance_model(pricing, region_name, instance_dict)
                 instances.append(instance)
-                # print(str(i) + ': ' + str(instance))
-                i += 1
+
     return instances
 
 
@@ -146,7 +143,6 @@ def list_ebs_volumes():
 
     describe_regions_response = ebs.describe_regions()
     volumes = []
-    i = 1
     print('Checking all AWS regions...')
     for region in describe_regions_response['Regions']:
         region_name = region['RegionName']
@@ -155,7 +151,7 @@ def list_ebs_volumes():
         for volume_dict in describe_volumes_response['Volumes']:
             volume = build_volume_model(region_name, volume_dict)
             volumes.append(volume)
-        i += 1
+
     return volumes
 
 
@@ -268,6 +264,7 @@ def estimate_monthly_ebs_storage_price(region_name: str, instance_id: str) -> fl
     return total_gb * 0.1  # Assume EBS costs $0.1/GB/month, true as of Dec 2021 for gp2 type storage
 
 
+# Estimate the monthly cost of an EBS storage volume; pricing estimations based on region us-east-1
 def estimate_monthly_volume_price(volume_type: str, size: float, iops: float, throughput: float) -> float:
     if 'gp3' in volume_type:  # gp3 type storage depends on storage, IOPS, and throughput
         cost = size * 0.08
@@ -282,19 +279,7 @@ def estimate_monthly_volume_price(volume_type: str, size: float, iops: float, th
         return size * 0.1
 
 
-# Set a tag on an instance - can remove?
-def old_set_tag(region_name: str, instance_id: str, tag_name: str, tag_value: str, dryrun: bool) -> None:
-    ec2 = boto3.client('ec2', region_name=region_name)
-    print(f'Setting tag {tag_value} on instance: {instance_id} in region {region_name}')
-    if not dryrun:
-        response = ec2.create_tags(Resources=[instance_id], Tags=[{
-            'Key': tag_name,
-            'Value': tag_value
-        }])
-        print(f'Response from create_tags: {str(response)}')
-
-
-# Set a tag on an instance or a volume (combined) - does this work?
+# Set a tag
 def set_tag(region_name: str, type_ec2: str, id_name: str, tag_name: str, tag_value: str, dryrun: bool) -> None:
     ec2 = boto3.client('ec2', region_name=region_name)
     print(f'Setting tag {tag_value} on {type_ec2}: {id_name} in region {region_name}')
