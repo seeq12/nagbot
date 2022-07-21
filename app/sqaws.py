@@ -118,25 +118,6 @@ class Volume:
                 self.throughput]
 
 
-# Get a list of model classes representing important properties of EC2 instances
-def list_ec2_instances(pricing: PricingData):
-    ec2 = boto3.client('ec2', region_name='us-west-2')
-
-    describe_regions_response = ec2.describe_regions()
-    instances = []
-    print('Checking all AWS regions...')
-    for region in describe_regions_response['Regions']:
-        region_name = region['RegionName']
-        ec2 = boto3.client('ec2', region_name=region_name)
-        describe_instances_response = ec2.describe_instances()
-        for reservation in describe_instances_response['Reservations']:
-            for instance_dict in reservation['Instances']:
-                instance = build_instance_model(pricing, region_name, instance_dict)
-                instances.append(instance)
-
-    return instances
-
-
 # Get a list of model classes representing important properties of EC2 resources
 def list_ec2_resources(pricing: PricingData) -> tuple:
     ec2 = boto3.client('ec2', region_name='us-west-2')
@@ -163,24 +144,6 @@ def list_ec2_resources(pricing: PricingData) -> tuple:
             volumes.append(volume)
 
     return instances, volumes
-
-
-# Get a list of model classes representing important properties of EBS volumes
-def list_ebs_volumes():
-    ebs = boto3.client('ec2', region_name='us-west-2')
-
-    describe_regions_response = ebs.describe_regions()
-    volumes = []
-    print('Checking all AWS regions...')
-    for region in describe_regions_response['Regions']:
-        region_name = region['RegionName']
-        ebs = boto3.client('ec2', region_name=region_name)
-        describe_volumes_response = ebs.describe_volumes()
-        for volume_dict in describe_volumes_response['Volumes']:
-            volume = build_volume_model(region_name, volume_dict)
-            volumes.append(volume)
-
-    return volumes
 
 
 # Get the info about a single EC2 instance
