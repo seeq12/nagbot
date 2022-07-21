@@ -140,7 +140,7 @@ def list_ec2_instances(pricing: PricingData):
     return instances
 
 
-# Get a list of model classes representing important properties of EBS volumes (keep separate?)
+# Get a list of model classes representing important properties of EBS volumes
 def list_ebs_volumes():
     ebs = boto3.client('ec2', region_name='us-west-2')
 
