@@ -43,7 +43,7 @@ def test_stop_instance(mock_client):
     instance_id = 'i-0f06b49c1f16dcfde'
     mock_ec2 = mock_client.return_value
 
-    assert app.sqaws.stop_instance(region_name, instance_id, dryrun=False)
+    assert app.sqaws.Instance.stop_instance(region_name, instance_id, dryrun=False)
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.stop_instances.assert_called_once_with(InstanceIds=[instance_id])
@@ -60,7 +60,7 @@ def test_stop_instance_exception(mock_client):
     mock_ec2 = mock_client.return_value
     mock_ec2.stop_instances.side_effect = lambda *args, **kw: raise_error()
 
-    assert not app.sqaws.stop_instance(region_name, instance_id, dryrun=False)
+    assert not app.sqaws.Instance.stop_instance(region_name, instance_id, dryrun=False)
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.stop_instances.assert_called_once_with(InstanceIds=[instance_id])
@@ -71,8 +71,12 @@ def test_terminate_instance(mock_client):
     region_name = 'us-east-1'
     instance_id = 'i-0f06b49c1f16dcfde'
     mock_ec2 = mock_client.return_value
+    blank_instance = app.sqaws.Instance(r_name='', r_id='', state='', reason='', r_type='', name='', eks_name='',
+                                        os='', s_after='', t_after='', n_state='', contact='', m_price='',
+                                        m_server_price='', m_storage_price='', s_after_tag='', t_after_tag='',
+                                        n_state_tag='')
 
-    assert app.sqaws.terminate_instance(region_name, instance_id, dryrun=False)
+    assert app.sqaws.Instance.terminate_resource(blank_instance, region_name, instance_id, dryrun=False)
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[instance_id])
@@ -89,8 +93,12 @@ def test_terminate_instance_exception(mock_client):
     instance_id = 'i-0f06b49c1f16dcfde'
     mock_ec2 = mock_client.return_value
     mock_ec2.terminate_instances.side_effect = lambda *args, **kw: raise_error()
+    blank_instance = app.sqaws.Instance(r_name='', r_id='', state='', reason='', r_type='', name='', eks_name='',
+                                        os='', s_after='', t_after='', n_state='', contact='', m_price='',
+                                        m_server_price='', m_storage_price='', s_after_tag='', t_after_tag='',
+                                        n_state_tag='')
 
-    assert not app.sqaws.terminate_instance(region_name, instance_id, dryrun=False)
+    assert not app.sqaws.Instance.terminate_resource(blank_instance, region_name, instance_id, dryrun=False)
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[instance_id])
@@ -101,8 +109,10 @@ def test_delete_volume(mock_client):
     region_name = 'us-east-1'
     volume_id = 'vol-091303dbe44e6914d'
     mock_ec2 = mock_client.return_value
+    blank_volume = app.sqaws.Volume(r_name='', r_id='', state='', r_type='', size='', iops='', throughput='',
+                                    name='', os='', t_after='', contact='', m_price='', t_after_tag='')
 
-    assert app.sqaws.delete_volume(region_name, volume_id, dryrun=False)
+    assert app.sqaws.Volume.terminate_resource(blank_volume, region_name, volume_id, dryrun=False)
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.delete_volume.assert_called_once_with(VolumeId=volume_id)
@@ -117,8 +127,10 @@ def test_delete_volume_exception(mock_client):
     volume_id = 'vol-091303dbe44e6914d'
     mock_ec2 = mock_client.return_value
     mock_ec2.delete_volume.side_effect = lambda *args, **kw: raise_error()
+    blank_volume = app.sqaws.Volume(r_name='', r_id='', state='', r_type='', size='', iops='', throughput='',
+                                    name='', os='', t_after='', contact='', m_price='', t_after_tag='')
 
-    assert not app.sqaws.delete_volume(region_name, volume_id, dryrun=False)
+    assert not app.sqaws.Volume.terminate_resource(blank_volume, region_name, volume_id, dryrun=False)
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.delete_volume.assert_called_once_with(VolumeId=volume_id)
@@ -153,8 +165,7 @@ def test_delete_volume_exception(mock_client):
                          ])
 def test_get_tag_names(test_dict, expected_stop_result, expected_terminate_result, expected_nagbot_state,
                        expected_stop_tag_name, expected_terminate_tag_name, expected_nagbot_state_tag_name):
-    stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = \
-        app.sqaws.get_tag_names(test_dict)
+    stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = app.sqaws.get_tag_names(test_dict)
     stop_after = test_dict.get(stop_after_tag_name, '')
     terminate_after = test_dict.get(terminate_after_tag_name, '')
     nagbot_state = test_dict.get(nagbot_state_tag_name, '')

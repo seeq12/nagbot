@@ -11,7 +11,7 @@ from . import gdocs
 from . import parsing
 from . import sqaws
 from . import sqslack
-from .sqaws import money_to_string, Instance, Volume
+from .sqaws import money_to_string
 from .pricing import PricingData
 
 TERMINATION_WARNING_DAYS = 3
@@ -37,7 +37,15 @@ class Nagbot(object):
     @staticmethod
     def notify_internal(channel, dryrun):
         pricing = PricingData()
-        instances, volumes = sqaws.list_ec2_resources(pricing)
+        blank_instance = sqaws.Instance(r_name='', r_id='', state='', reason='', r_type='', name='', eks_name='',
+                                        os='', s_after='', t_after='', n_state='', contact='', m_price='',
+                                        m_server_price='', m_storage_price='', s_after_tag='', t_after_tag='',
+                                        n_state_tag='')
+        blank_volume = sqaws.Volume(r_name='', r_id='', state='', r_type='', size='', iops='', throughput='',
+                                    name='', os='', t_after='', contact='', m_price='', t_after_tag='')
+
+        instances = sqaws.Instance.list_resources(blank_instance, pricing=pricing)
+        volumes = sqaws.Volume.list_resources(blank_volume, pricing=pricing)
 
         num_running_instances = sum(1 for i in instances if i.state == 'running')
         num_total_instances = len(instances)
@@ -70,17 +78,17 @@ class Nagbot(object):
 
         sqslack.send_message(channel, summary_msg)
 
-        # From here on, filter out excluded instances
-        instances = sorted((i for i in instances if not is_excluded(i)), key=lambda i: i.name)
-        volumes = sorted((v for v in volumes), key=lambda v: v.name)
+        # First, sort and investigate instances
+        instances = sorted((i for i in instances if len(i.eks_nodegroup_name) < 0), key=lambda i: i.name)
 
-        instances_to_terminate = get_terminatable_instances(instances)
+        instances_to_terminate = sqaws.Instance.get_terminatable_resources(blank_instance, instances)
         if len(instances_to_terminate) > 0:
             terminate_msg = 'The following %d _stopped_ instances are due to be *TERMINATED*, ' \
                             'based on the "Terminate after" tag:\n' % len(instances_to_terminate)
             for i in instances_to_terminate:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                terminate_msg += make_instance_summary(i) + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
+                terminate_msg += sqaws.Instance.make_resource_summary(i, i) + \
+                    ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
                     .format(i.terminate_after, money_to_string(i.monthly_price), contact)
                 sqaws.set_tag(i.region_name, 'instance', i.instance_id, i.terminate_after_tag_name,
                               parsing.add_warning_to_tag(i.terminate_after, TODAY_YYYY_MM_DD), dryrun=dryrun)
@@ -88,13 +96,14 @@ class Nagbot(object):
             terminate_msg = 'No instances are due to be terminated at this time.\n'
         sqslack.send_message(channel, terminate_msg)
 
-        instances_to_stop = get_stoppable_instances(instances)
+        instances_to_stop = sqaws.Instance.get_stoppable_resources(blank_instance, instances)
         if len(instances_to_stop) > 0:
             stop_msg = 'The following %d _running_ instances are due to be *STOPPED*, ' \
                        'based on the "Stop after" tag:\n' % len(instances_to_stop)
             for i in instances_to_stop:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                stop_msg += make_instance_summary(i) + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
+                stop_msg += sqaws.Instance.make_resource_summary(i, i) + \
+                    ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
                     .format(i.stop_after, money_to_string(i.monthly_price), contact)
                 sqaws.set_tag(i.region_name, 'instance', i.instance_id, i.stop_after_tag_name,
                               parsing.add_warning_to_tag(i.stop_after, TODAY_YYYY_MM_DD, replace=True), dryrun=dryrun)
@@ -102,13 +111,17 @@ class Nagbot(object):
             stop_msg = 'No instances are due to be stopped at this time.\n'
         sqslack.send_message(channel, stop_msg)
 
-        volumes_to_delete = get_deletable_volumes(volumes)
+        # Then, sort and investigate EBS volumes
+        volumes = sorted((v for v in volumes), key=lambda v: v.name)
+
+        volumes_to_delete = sqaws.Volume.get_terminatable_resources(blank_volume, volumes)
         if len(volumes_to_delete) > 0:
             delete_msg = 'The following %d volumes are due to be *DELETED*, ' \
                          'based on the "Terminate after" tag:\n' % len(volumes_to_delete)
             for v in volumes_to_delete:
                 contact = sqslack.lookup_user_by_email(v.contact)
-                delete_msg += make_volume_summary(v) + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
+                delete_msg += sqaws.Volume.make_resource_summary(blank_volume, v) + \
+                    ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
                     .format(v.terminate_after, money_to_string(v.monthly_price), contact)
                 sqaws.set_tag(v.region_name, 'volume', v.volume_id, v.terminate_after_tag_name,
                               parsing.add_warning_to_tag(v.terminate_after, TODAY_YYYY_MM_DD, replace=True),
@@ -127,28 +140,37 @@ class Nagbot(object):
     @staticmethod
     def execute_internal(channel, dryrun):
         pricing = PricingData()
-        instances, volumes = sqaws.list_ec2_resources(pricing)
+        blank_instance = sqaws.Instance(r_name='', r_id='', state='', reason='', r_type='', name='', eks_name='',
+                                        os='', s_after='', t_after='', n_state='', contact='', m_price='',
+                                        m_server_price='', m_storage_price='', s_after_tag='', t_after_tag='',
+                                        n_state_tag='')
+        blank_volume = sqaws.Volume(r_name='', r_id='', state='', r_type='', size='', iops='', throughput='',
+                                    name='', os='', t_after='', contact='', m_price='', t_after_tag='')
+
+        instances = sqaws.Instance.list_resources(blank_instance, pricing=pricing)
+        volumes = sqaws.Volume.list_resources(blank_volume, pricing=pricing)
 
         # Only terminate instances which still meet the criteria for terminating, AND were warned several times
-        instances_to_terminate = get_terminatable_instances(instances)
-        instances_to_terminate = [i for i in instances_to_terminate if is_safe_to_terminate(i)]
+        instances_to_terminate = sqaws.Instance.get_terminatable_resources(instances, instances)
+        instances_to_terminate = [i for i in instances_to_terminate if
+                                  sqaws.Instance.is_safe_to_terminate(blank_instance, i)]
 
         # Only delete volumes which still meet the criteria for deleting, AND were warned several times
-        volumes_to_delete = get_deletable_volumes(volumes)
-        volumes_to_delete = [v for v in volumes_to_delete if is_safe_to_delete(v)]
+        volumes_to_delete = sqaws.Volume.get_terminatable_resources(volumes, volumes)
+        volumes_to_delete = [v for v in volumes_to_delete if sqaws.Volume.is_safe_to_terminate(blank_volume, v)]
 
         # Only stop instances which still meet the criteria for stopping, AND were warned recently
-        instances_to_stop = get_stoppable_instances(instances)
-        instances_to_stop = [i for i in instances_to_stop if is_safe_to_stop(i)]
+        instances_to_stop = sqaws.Instance.get_stoppable_resources(instances, instances)
+        instances_to_stop = [i for i in instances_to_stop if sqaws.Instance.is_safe_to_stop(blank_instance, i)]
 
         if len(instances_to_terminate) > 0:
             message = 'I terminated the following instances: '
             for i in instances_to_terminate:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                message = message + make_instance_summary(i) \
-                                  + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
-                                    .format(i.terminate_after, money_to_string(i.monthly_price), contact)
-                sqaws.terminate_instance(i.region_name, i.instance_id, dryrun=dryrun)
+                message = message + sqaws.Instance.make_resource_summary(blank_instance, i) \
+                    + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
+                    .format(i.terminate_after, money_to_string(i.monthly_price), contact)
+                sqaws.Instance.terminate_resource(i, i.region_name, i.instance_id, dryrun=dryrun)
             sqslack.send_message(channel, message)
         else:
             sqslack.send_message(channel, 'No instances were terminated today.')
@@ -157,10 +179,10 @@ class Nagbot(object):
             message = 'I deleted the following volumes: '
             for v in volumes_to_delete:
                 contact = sqslack.lookup_user_by_email(v.contact)
-                message = message + make_volume_summary(v) \
-                                  + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n'\
-                                    .format(v.terminate_after, money_to_string(v.monthly_price), contact)
-                sqaws.delete_volume(v.region_name, v.volume_id, dryrun=dryrun)
+                message = message + sqaws.Volume.make_resource_summary(blank_volume, v) \
+                    + ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
+                    .format(v.terminate_after, money_to_string(v.monthly_price), contact)
+                sqaws.Volume.terminate_resource(v, v.region_name, v.volume_id, dryrun=dryrun)
             sqslack.send_message(channel, message)
         else:
             sqslack.send_message(channel, 'No volumes were deleted today.')
@@ -169,9 +191,10 @@ class Nagbot(object):
             message = 'I stopped the following instances: '
             for i in instances_to_stop:
                 contact = sqslack.lookup_user_by_email(i.contact)
-                message = message + make_instance_summary(i) + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
+                message = message + sqaws.Instance.make_resource_summary(blank_instance, i) \
+                    + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
                     .format(i.stop_after, money_to_string(i.monthly_price), contact)
-                sqaws.stop_instance(i.region_name, i.instance_id, dryrun=dryrun)
+                sqaws.Instance.stop_instance(i.region_name, i.instance_id, dryrun=dryrun)
                 sqaws.set_tag(i.region_name, 'instance', i.instance_id, i.nagbot_state_tag_name, 'Stopped on ' +
                               TODAY_YYYY_MM_DD, dryrun=dryrun)
             sqslack.send_message(channel, message)
@@ -184,100 +207,6 @@ class Nagbot(object):
         except Exception as e:
             sqslack.send_message(channel, "Nagbot failed to run the 'execute' command: " + str(e))
             raise e
-
-
-def get_stoppable_instances(instances):
-    return list(i for i in instances if is_stoppable(i))
-
-
-def is_stoppable(instance, is_weekend=TODAY_IS_WEEKEND):
-    parsed_date: parsing.ParsedDate = parsing.parse_date_tag(instance.stop_after)
-
-    return instance.state == 'running' and (
-            # Treat unspecified "Stop after" dates as being in the past
-            (parsed_date.expiry_date is None and not parsed_date.on_weekends)
-            or (parsed_date.on_weekends and is_weekend)
-            or (parsed_date.expiry_date is not None and TODAY_YYYY_MM_DD >= parsed_date.expiry_date))
-
-
-def get_terminatable_instances(instances):
-    return list(i for i in instances if is_terminatable(i))
-
-
-def is_terminatable(instance):
-    parsed_date: parsing.ParsedDate = parsing.parse_date_tag(instance.terminate_after)
-
-    # For now, we'll only terminate instances which have an explicit 'Terminate after' tag
-    return instance.state == 'stopped' and (
-        (parsed_date.expiry_date is not None and TODAY_YYYY_MM_DD >= parsed_date.expiry_date))
-
-
-def get_deletable_volumes(volumes):
-    return list(v for v in volumes if is_deletable(v))
-
-
-def is_deletable(volume):
-    parsed_date: parsing.ParsedDate = parsing.parse_date_tag(volume.terminate_after)
-
-    # For now, we'll only terminate volumes which have an explicit 'Terminate after' tag
-    return volume.state == 'available' and (
-        (parsed_date.expiry_date is not None and TODAY_YYYY_MM_DD >= parsed_date.expiry_date))
-
-
-# Some instances are excluded from stop or terminate actions. These won't show up as recommendations to stop/terminate.
-def is_excluded(instance: Instance):
-    if len(instance.eks_nodegroup_name) > 0:
-        return True
-    return False
-
-
-def is_safe_to_stop(instance, is_weekend=TODAY_IS_WEEKEND):
-    warning_date = parsing.parse_date_tag(instance.stop_after).warning_date
-    return is_stoppable(instance, is_weekend=is_weekend) \
-        and warning_date is not None and warning_date <= TODAY_YYYY_MM_DD
-
-
-def is_safe_to_terminate(instance):
-    warning_date = parsing.parse_date_tag(instance.terminate_after).warning_date
-    return is_terminatable(instance) and warning_date is not None and warning_date <= MIN_TERMINATION_WARNING_YYYY_MM_DD
-
-
-def is_safe_to_delete(volume):
-    warning_date = parsing.parse_date_tag(volume.terminate_after).warning_date
-    return is_deletable(volume) and warning_date is not None and warning_date <= MIN_TERMINATION_WARNING_YYYY_MM_DD
-
-
-def make_instance_summary(instance):
-    instance_id = instance.instance_id
-    instance_url = url_from_instance_id(instance.region_name, instance_id)
-    link = '<{}|{}>'.format(instance_url, instance.name)
-    if instance.reason:
-        state = 'State=({}, "{}")'.format(instance.state, instance.reason)
-    else:
-        state = 'State={}'.format(instance.state)
-    line = '{}, {}, Type={}'.format(link, state, instance.instance_type)
-    return line
-
-
-def make_volume_summary(volume):
-    volume_id = volume.volume_id
-    volume_url = url_from_volume_id(volume.region_name, volume_id)
-    link = '<{}|{}>'.format(volume_url, volume.name)
-    state = 'State={}'.format(volume.state)
-    line = '{}, {}, Type={}'.format(link, state, volume.volume_type)
-    return line
-
-
-def url_from_instance_id(region_name, instance_id):
-    return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#Instances:search={}'.format(region_name,
-                                                                                                region_name,
-                                                                                                instance_id)
-
-
-def url_from_volume_id(region_name, volume_id):
-    return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#Volumes:search={}'.format(region_name,
-                                                                                              region_name,
-                                                                                              volume_id)
 
 
 def main(args):
