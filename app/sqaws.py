@@ -41,7 +41,7 @@ def set_tag(region_name: str, type_ec2: str, id_name: str, tag_name: str, tag_va
         print(f'Response from create_tags: {str(response)}')
 
 
-# Get 'stop after', 'terminate after', and 'Nagbot state' tag names in an EC2 instance, regardless of formatting
+# Get 'stop after', 'terminate after', and 'Nagbot state' tag names in a resource, regardless of formatting
 def get_tag_names(tags: dict) -> tuple:
     stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = 'StopAfter', 'TerminateAfter', 'NagbotState'
     for key, value in tags.items():
@@ -90,8 +90,8 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
 
 
 # Check if a resource is stoppable - currently, only instances should be stoppable
-def is_stoppable(resource, ec2_type, today_date, is_weekend=TODAY_IS_WEEKEND):
-    if not ec2_type == 'instance':
+def is_stoppable(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
+    if not resource.ec2_type == 'instance':
         return False
 
     parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.stop_after)
@@ -103,98 +103,20 @@ def is_stoppable(resource, ec2_type, today_date, is_weekend=TODAY_IS_WEEKEND):
 
 
 # Check if a resource is safe to stop - currently, only instances should be safe to stop
-def is_safe_to_stop(resource, ec2_type, today_date, is_weekend=TODAY_IS_WEEKEND):
-    if not ec2_type == 'instance':
+def is_safe_to_stop(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
+    if not resource.ec2_type == 'instance':
         return False
 
     warning_date = parsing.parse_date_tag(resource.stop_after).warning_date
-    return is_stoppable(resource, ec2_type, today_date, is_weekend=is_weekend) \
+    return is_stoppable(resource, today_date, is_weekend=is_weekend) \
         and warning_date is not None and warning_date <= today_date
 
 
-# Class representing generic EC2 instances
-class Instances:
-    # Return the type of EC2 resource being examined ('instance')
-    @staticmethod
-    def to_string() -> str:
-        return 'instance'
-
-    # Get a list of model classes representing important properties of EC2 instances
-    @staticmethod
-    def list_resources():
-        ec2 = boto3.client('ec2', region_name='us-west-2')
-
-        describe_regions_response = ec2.describe_regions()
-        instances = []
-
-        print('Checking all AWS regions...')
-        for region in describe_regions_response['Regions']:
-            region_name = region['RegionName']
-            ec2 = boto3.client('ec2', region_name=region_name)
-
-            describe_instances_response = ec2.describe_instances()
-
-            for reservation in describe_instances_response['Reservations']:
-                for instance_dict in reservation['Instances']:
-                    instance = Instances.build_model(region_name, instance_dict)
-                    instances.append(instance)
-
-        return instances
-
-    # Get the info about a single EC2 instance
-    @staticmethod
-    def build_model(region_name: str, resource_dict: dict):
-        tags = make_tags_dict(resource_dict.get('Tags', []))
-
-        resource_id = resource_dict['InstanceId']
-        state = resource_dict['State']['Name']
-        reason = resource_dict.get('StateTransitionReason', '')
-        resource_type = resource_dict['InstanceType']
-        eks_nodegroup_name = tags.get('eks:nodegroup-name', '')
-        name = tags.get('Name', eks_nodegroup_name)
-        platform = resource_dict.get('Platform', '')
-        operating_system = ('Windows' if platform == 'windows' else 'Linux')
-
-        pricing = PricingData()
-        monthly_server_price = pricing.lookup_monthly_price(region_name, resource_type, operating_system)
-        monthly_storage_price = estimate_monthly_ebs_storage_price(region_name, resource_id, 'none', 0, 0, 0)
-        monthly_price = (monthly_server_price + monthly_storage_price) if state == 'running' else monthly_storage_price
-
-        stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = get_tag_names(tags)
-        stop_after = tags.get(stop_after_tag_name, '')
-        terminate_after = tags.get(terminate_after_tag_name, '')
-        nagbot_state = tags.get(nagbot_state_tag_name, '')
-        contact = tags.get('Contact', '')
-
-        return Instance(region_name=region_name,
-                        resource_id=resource_id,
-                        state=state,
-                        reason=reason,
-                        resource_type=resource_type,
-                        eks_nodegroup_name=eks_nodegroup_name,
-                        name=name,
-                        operating_system=operating_system,
-                        monthly_price=monthly_price,
-                        monthly_server_price=monthly_server_price,
-                        monthly_storage_price=monthly_storage_price,
-                        stop_after=stop_after,
-                        terminate_after=terminate_after,
-                        nagbot_state=nagbot_state,
-                        contact=contact,
-                        stop_after_tag_name=stop_after_tag_name,
-                        terminate_after_tag_name=terminate_after_tag_name,
-                        nagbot_state_tag_name=nagbot_state_tag_name,
-                        size=0,
-                        iops=0,
-                        throughput=0)
-
-
-# Class representing a single EC2 instance
+# Class representing a generic EC2 resource & containing functions shared by all resources currently in use
 @dataclass
-class Instance:
+class Resource:
     region_name: str
     resource_id: str
-    state: str
     reason: str
     resource_type: str
     name: str
@@ -204,15 +126,103 @@ class Instance:
     terminate_after: str
     nagbot_state: str
     contact: str
-    monthly_price: float
-    monthly_server_price: float
-    monthly_storage_price: float
     stop_after_tag_name: str
     terminate_after_tag_name: str
     nagbot_state_tag_name: str
-    size: float
     iops: float
     throughput: float
+
+    # Get a list of model classes representing important properties of EC2 resources
+    @staticmethod
+    def generic_list_resources():
+        ec2 = boto3.client('ec2', region_name='us-west-2')
+        describe_regions_response = ec2.describe_regions()
+        print('Checking all AWS regions...')
+
+        return describe_regions_response
+
+    # Get the info about a single EC2 resource
+    @staticmethod
+    def build_generic_model(tags: dict, resource_dict: dict, region_name: str, resource_id_tag: str,
+                            resource_type_tag: str):
+        resource_id = resource_dict[resource_id_tag]
+        resource_type = resource_dict[resource_type_tag]
+        reason = resource_dict.get('StateTransitionReason', '')
+        eks_nodegroup_name = tags.get('eks:nodegroup-name', '')
+        name = tags.get('Name', eks_nodegroup_name)
+        platform = resource_dict.get('Platform', '')
+        operating_system = ('Windows' if platform == 'windows' else 'Linux')
+        iops = resource_dict.get('Iops', '')
+        throughput = resource_dict.get('Throughput', '')
+
+        stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name = get_tag_names(tags)
+        stop_after = tags.get(stop_after_tag_name, '')
+        terminate_after = tags.get(terminate_after_tag_name, '')
+        nagbot_state = tags.get(nagbot_state_tag_name, '')
+        contact = tags.get('Contact', '')
+
+        return Resource(region_name=region_name,
+                        resource_id=resource_id,
+                        reason=reason,
+                        resource_type=resource_type,
+                        eks_nodegroup_name=eks_nodegroup_name,
+                        name=name,
+                        operating_system=operating_system,
+                        stop_after=stop_after,
+                        terminate_after=terminate_after,
+                        nagbot_state=nagbot_state,
+                        contact=contact,
+                        stop_after_tag_name=stop_after_tag_name,
+                        terminate_after_tag_name=terminate_after_tag_name,
+                        nagbot_state_tag_name=nagbot_state_tag_name,
+                        iops=iops,
+                        throughput=throughput)
+
+    # Check if a resource is terminatable
+    @staticmethod
+    def generic_is_terminatable(resource, state, today_date):
+        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.terminate_after)
+
+        # For now, we'll only terminate instances which have an explicit 'Terminate after' tag
+        return resource.state == state and (
+            (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+
+    # Check if a resource is safe to terminate
+    @staticmethod
+    def generic_is_safe_to_terminate(resource, resource_type, today_date):
+        warning_date = parsing.parse_date_tag(resource.terminate_after).warning_date
+        return resource_type.is_terminatable(resource, today_date) and warning_date is not None and warning_date <= \
+            MIN_TERMINATION_WARNING_YYYY_MM_DD
+
+    # Create resource summary
+    @staticmethod
+    def make_generic_resource_summary(resource, resource_type):
+        resource_id = resource.resource_id
+        resource_url = resource_type.url_from_id(resource.region_name, resource_id)
+        link = '<{}|{}>'.format(resource_url, resource.name)
+        return link
+
+    # Create resource url
+    @staticmethod
+    def generic_url_from_id(region_name, resource_id, resource_type):
+        return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#{}:search={}'.format(region_name, region_name,
+                                                                                             resource_type, resource_id)
+
+
+# Class representing an EC2 instance
+@dataclass
+class Instance(Resource):
+    state: str
+    ec2_type: str
+    monthly_price: float
+    monthly_server_price: float
+    monthly_storage_price: float
+    size: float
+
+    # Return the type and state of the EC2 resource being examined ('instance' and 'running')
+    @staticmethod
+    def to_string():
+        return 'instance', 'running'
 
     @staticmethod
     def to_header() -> [str]:
@@ -249,6 +259,66 @@ class Instance:
                 self.operating_system,
                 self.eks_nodegroup_name]
 
+    # Get a list of model classes representing important properties of EC2 instances
+    @staticmethod
+    def list_resources():
+        describe_regions_response = Resource.generic_list_resources()
+        instances = []
+
+        for region in describe_regions_response['Regions']:
+            region_name = region['RegionName']
+            ec2 = boto3.client('ec2', region_name=region_name)
+            describe_instances_response = ec2.describe_instances()
+
+            for reservation in describe_instances_response['Reservations']:
+                for instance_dict in reservation['Instances']:
+                    instance = Instance.build_model(region_name, instance_dict)
+                    instances.append(instance)
+        return instances
+
+    # Get the info about a single EC2 instance
+    @staticmethod
+    def build_model(region_name: str, resource_dict: dict):
+        tags = make_tags_dict(resource_dict.get('Tags', []))
+
+        state = resource_dict['State']['Name']
+        ec2_type = 'instance'
+
+        resource_id_tag = 'InstanceId'
+        resource_type_tag = 'InstanceType'
+        instance = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
+
+        pricing = PricingData()
+        monthly_server_price = pricing.lookup_monthly_price(region_name, instance.resource_type,
+                                                            instance.operating_system)
+        monthly_storage_price = estimate_monthly_ebs_storage_price(region_name, instance.resource_id, 'none', 0, 0, 0)
+        monthly_price = (monthly_server_price + monthly_storage_price) if state == 'running' else monthly_storage_price
+
+        size = 0
+
+        return Instance(region_name=region_name,
+                        resource_id=instance.resource_id,
+                        state=state,
+                        reason=instance.reason,
+                        resource_type=instance.resource_type,
+                        ec2_type=ec2_type,
+                        eks_nodegroup_name=instance.eks_nodegroup_name,
+                        name=instance.name,
+                        operating_system=instance.operating_system,
+                        monthly_price=monthly_price,
+                        monthly_server_price=monthly_server_price,
+                        monthly_storage_price=monthly_storage_price,
+                        stop_after=instance.stop_after,
+                        terminate_after=instance.terminate_after,
+                        nagbot_state=instance.nagbot_state,
+                        contact=instance.contact,
+                        stop_after_tag_name=instance.stop_after_tag_name,
+                        terminate_after_tag_name=instance.terminate_after_tag_name,
+                        nagbot_state_tag_name=instance.nagbot_state_tag_name,
+                        size=size,
+                        iops=instance.iops,
+                        throughput=instance.throughput)
+
     # Terminate an EC2 instance
     @staticmethod
     def terminate_resource(region_name: str, resource_id: str, dryrun: bool) -> bool:
@@ -266,25 +336,20 @@ class Instance:
     # Check if an instance is terminatable
     @staticmethod
     def is_terminatable(resource, today_date):
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.terminate_after)
-
-        # For now, we'll only terminate instances which have an explicit 'Terminate after' tag
-        return resource.state == 'stopped' and (
-            (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+        state = 'running'
+        return Resource.generic_is_terminatable(resource, state, today_date)
 
     # Check if an instance is safe to terminate
     @staticmethod
     def is_safe_to_terminate(resource, today_date):
-        warning_date = parsing.parse_date_tag(resource.terminate_after).warning_date
-        return Instance.is_terminatable(resource, today_date) and warning_date is not None and warning_date <= \
-            MIN_TERMINATION_WARNING_YYYY_MM_DD
+        resource_type = Instance
+        return Resource.generic_is_safe_to_terminate(resource, resource_type, today_date)
 
     # Create instance summary
     @staticmethod
     def make_resource_summary(resource):
-        instance_id = resource.resource_id
-        instance_url = Instance.url_from_id(resource.region_name, instance_id)
-        link = '<{}|{}>'.format(instance_url, resource.name)
+        resource_type = Instance
+        link = Resource.make_generic_resource_summary(resource, resource_type)
         if resource.reason:
             state = 'State=({}, "{}")'.format(resource.state, resource.reason)
         else:
@@ -295,111 +360,24 @@ class Instance:
     # Create instance url
     @staticmethod
     def url_from_id(region_name, resource_id):
-        return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#Instances:search={}'.format(region_name,
-                                                                                                    region_name,
-                                                                                                    resource_id)
+        resource_type = 'Instances'
+        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
 
-# Class representing generic EBS volumes
-class Volumes:
-    # Return the type of EC2 resource being examined ('volume')
-    @staticmethod
-    def to_string() -> str:
-        return 'volume'
-
-    # Get a list of model classes representing important properties of EBS volumes
-    @staticmethod
-    def list_resources():
-        ec2 = boto3.client('ec2', region_name='us-west-2')
-
-        describe_regions_response = ec2.describe_regions()
-        volumes = []
-
-        print('Checking all AWS regions...')
-        for region in describe_regions_response['Regions']:
-            region_name = region['RegionName']
-            ec2 = boto3.client('ec2', region_name=region_name)
-
-            describe_volumes_response = ec2.describe_volumes()
-
-            for volume_dict in describe_volumes_response['Volumes']:
-                volume = Volumes.build_model(region_name, volume_dict)
-                volumes.append(volume)
-
-        return volumes
-
-    # Get the info about a single EBS volume
-    @staticmethod
-    def build_model(region_name: str, resource_dict: dict):
-        tags = make_tags_dict(resource_dict.get('Tags', []))
-
-        resource_id = resource_dict['VolumeId']
-        state = resource_dict['State']
-        resource_type = resource_dict['VolumeType']
-        name = tags.get('Name', '')
-        platform = resource_dict.get('Platform', '')
-        operating_system = ('Windows' if platform == 'windows' else 'Linux')
-        size = resource_dict['Size']
-        iops = resource_dict.get('Iops', '')
-        throughput = resource_dict.get('Throughput', '')
-
-        monthly_price = estimate_monthly_ebs_storage_price(region_name, resource_id, resource_type, size, iops,
-                                                           throughput)
-
-        terminate_after_tag_name = 'TerminateAfter'
-        for key, value in tags.items():
-            if (key.lower()).startswith('terminate') and 'after' in (key.lower()):
-                terminate_after_tag_name = key
-        terminate_after = tags.get(terminate_after_tag_name, '')
-        contact = tags.get('Contact', '')
-
-        return Volume(region_name=region_name,
-                      resource_id=resource_id,
-                      state=state,
-                      reason='',
-                      resource_type=resource_type,
-                      eks_nodegroup_name='',
-                      name=name,
-                      operating_system=operating_system,
-                      monthly_price=monthly_price,
-                      monthly_server_price=0,
-                      monthly_storage_price=0,
-                      stop_after='',
-                      terminate_after=terminate_after,
-                      nagbot_state='',
-                      contact=contact,
-                      stop_after_tag_name='',
-                      terminate_after_tag_name=terminate_after_tag_name,
-                      nagbot_state_tag_name='',
-                      size=size,
-                      iops=iops,
-                      throughput=throughput)
-
-
-# Class representing a single EBS volume
+# Class representing an EBS volume
 @dataclass
-class Volume:
-    region_name: str
-    resource_id: str
+class Volume(Resource):
     state: str
-    reason: str
-    resource_type: str
-    name: str
-    eks_nodegroup_name: str
-    operating_system: str
-    stop_after: str
-    terminate_after: str
-    nagbot_state: str
-    contact: str
+    ec2_type: str
     monthly_price: float
     monthly_server_price: float
     monthly_storage_price: float
-    stop_after_tag_name: str
-    terminate_after_tag_name: str
-    nagbot_state_tag_name: str
     size: float
-    iops: float
-    throughput: float
+
+    # Return the type and state of the EC2 resource being examined ('volume' and 'unattached')
+    @staticmethod
+    def to_string():
+        return 'volume', 'unattached'
 
     @staticmethod
     def to_header() -> [str]:
@@ -430,6 +408,62 @@ class Volume:
                 self.iops,
                 self.throughput]
 
+    # Get a list of model classes representing important properties of EBS volumes
+    @staticmethod
+    def list_resources():
+        describe_regions_response = Resource.generic_list_resources()
+        volumes = []
+
+        for region in describe_regions_response['Regions']:
+            region_name = region['RegionName']
+            ec2 = boto3.client('ec2', region_name=region_name)
+            describe_volumes_response = ec2.describe_volumes()
+
+            for volume_dict in describe_volumes_response['Volumes']:
+                volume = Volume.build_model(region_name, volume_dict)
+                volumes.append(volume)
+        return volumes
+
+    # Get the info about a single EBS volume
+    @staticmethod
+    def build_model(region_name: str, resource_dict: dict):
+        tags = make_tags_dict(resource_dict.get('Tags', []))
+
+        state = resource_dict['State']
+        ec2_type = 'volume'
+        size = resource_dict['Size']
+
+        resource_id_tag = 'VolumeId'
+        resource_type_tag = 'VolumeType'
+        volume = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
+
+        monthly_price = estimate_monthly_ebs_storage_price(region_name, volume.resource_id, volume.resource_type, size,
+                                                           volume.iops, volume.throughput)
+        monthly_server_price, monthly_storage_price = 0, 0
+
+        return Volume(region_name=region_name,
+                      resource_id=volume.resource_id,
+                      state=state,
+                      reason=volume.reason,
+                      resource_type=volume.resource_type,
+                      ec2_type=ec2_type,
+                      eks_nodegroup_name=volume.eks_nodegroup_name,
+                      name=volume.name,
+                      operating_system=volume.operating_system,
+                      monthly_price=monthly_price,
+                      monthly_server_price=monthly_server_price,
+                      monthly_storage_price=monthly_storage_price,
+                      stop_after=volume.stop_after,
+                      terminate_after=volume.terminate_after,
+                      nagbot_state=volume.nagbot_state,
+                      contact=volume.contact,
+                      stop_after_tag_name=volume.stop_after_tag_name,
+                      terminate_after_tag_name=volume.terminate_after_tag_name,
+                      nagbot_state_tag_name=volume.nagbot_state_tag_name,
+                      size=size,
+                      iops=volume.iops,
+                      throughput=volume.throughput)
+
     # Delete/terminate an EBS volume
     @staticmethod
     def terminate_resource(region_name: str, resource_id: str, dryrun: bool) -> bool:
@@ -447,25 +481,20 @@ class Volume:
     # Check if a volume is deletable/terminatable
     @staticmethod
     def is_terminatable(resource, today_date):
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.terminate_after)
-
-        # For now, we'll only terminate volumes which have an explicit 'Terminate after' tag
-        return resource.state == 'available' and (
-            (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+        state = 'available'
+        return Resource.generic_is_terminatable(resource, state, today_date)
 
     # Check if a volume is safe to delete/terminate
     @staticmethod
     def is_safe_to_terminate(resource, today_date):
-        warning_date = parsing.parse_date_tag(resource.terminate_after).warning_date
-        return Volume.is_terminatable(resource, today_date) and warning_date is not None and warning_date <= \
-            MIN_TERMINATION_WARNING_YYYY_MM_DD
+        resource_type = Volume
+        return Resource.generic_is_safe_to_terminate(resource, resource_type, today_date)
 
     # Create volume summary
     @staticmethod
     def make_resource_summary(resource):
-        volume_id = resource.volume_id
-        volume_url = Volume.url_from_id(resource.region_name, volume_id)
-        link = '<{}|{}>'.format(volume_url, resource.name)
+        resource_type = Volume
+        link = Resource.make_generic_resource_summary(resource, resource_type)
         state = 'State={}'.format(resource.state)
         line = '{}, {}, Type={}'.format(link, state, resource.volume_type)
         return line
@@ -473,6 +502,5 @@ class Volume:
     # Create volume url
     @staticmethod
     def url_from_id(region_name, resource_id):
-        return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#Volumes:search={}'.format(region_name,
-                                                                                                  region_name,
-                                                                                                  resource_id)
+        resource_type = 'Volumes'
+        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
