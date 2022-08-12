@@ -89,29 +89,6 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
         return False
 
 
-# Check if a resource is stoppable - currently, only instances should be stoppable
-def is_stoppable(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
-    if not resource.ec2_type == 'instance':
-        return False
-
-    parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.stop_after)
-    return resource.state == 'running' and (
-        # Treat unspecified "Stop after" dates as being in the past
-        (parsed_date.expiry_date is None and not parsed_date.on_weekends)
-        or (parsed_date.on_weekends and is_weekend)
-        or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
-
-
-# Check if a resource is safe to stop - currently, only instances should be safe to stop
-def is_safe_to_stop(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
-    if not resource.ec2_type == 'instance':
-        return False
-
-    warning_date = parsing.parse_date_tag(resource.stop_after).warning_date
-    return is_stoppable(resource, today_date, is_weekend=is_weekend) \
-        and warning_date is not None and warning_date <= today_date
-
-
 # Class representing a generic EC2 resource & containing functions shared by all resources currently in use
 @dataclass
 class Resource:
@@ -178,6 +155,19 @@ class Resource:
                         iops=iops,
                         throughput=throughput)
 
+    # Check if a resource is stoppable - currently, only instances should be stoppable
+    @staticmethod
+    def generic_is_stoppable(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
+        if not resource.ec2_type == 'instance':
+            return False
+
+        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.stop_after)
+        return resource.state == 'running' and (
+            # Treat unspecified "Stop after" dates as being in the past
+            (parsed_date.expiry_date is None and not parsed_date.on_weekends)
+            or (parsed_date.on_weekends and is_weekend)
+            or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+
     # Check if a resource is terminatable
     @staticmethod
     def generic_is_terminatable(resource, state, today_date):
@@ -186,6 +176,16 @@ class Resource:
         # For now, we'll only terminate instances which have an explicit 'Terminate after' tag
         return resource.state == state and (
             (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+
+    # Check if a resource is safe to stop - currently, only instances should be safe to stop
+    @staticmethod
+    def generic_is_safe_to_stop(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
+        if not resource.ec2_type == 'instance':
+            return False
+
+        warning_date = parsing.parse_date_tag(resource.stop_after).warning_date
+        return Resource.generic_is_stoppable(resource, today_date, is_weekend=is_weekend) \
+            and warning_date is not None and warning_date <= today_date
 
     # Check if a resource is safe to terminate
     @staticmethod
@@ -333,28 +333,33 @@ class Instance(Resource):
             print(f'Failure when calling terminate_instances: {str(e)}')
             return False
 
+    # Check if an instance is stoppable
+    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
+        return self.generic_is_stoppable(self, today_date, is_weekend)
+
     # Check if an instance is terminatable
-    @staticmethod
-    def is_terminatable(resource, today_date):
-        state = 'running'
-        return Resource.generic_is_terminatable(resource, state, today_date)
+    def is_terminatable(self, today_date):
+        state = 'stopped'
+        return self.generic_is_terminatable(self, state, today_date)
+
+    # Check if an instance is safe to stop
+    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
+        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
 
     # Check if an instance is safe to terminate
-    @staticmethod
-    def is_safe_to_terminate(resource, today_date):
+    def is_safe_to_terminate(self, today_date):
         resource_type = Instance
-        return Resource.generic_is_safe_to_terminate(resource, resource_type, today_date)
+        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
 
     # Create instance summary
-    @staticmethod
-    def make_resource_summary(resource):
+    def make_resource_summary(self):
         resource_type = Instance
-        link = Resource.make_generic_resource_summary(resource, resource_type)
-        if resource.reason:
-            state = 'State=({}, "{}")'.format(resource.state, resource.reason)
+        link = self.make_generic_resource_summary(self, resource_type)
+        if self.reason:
+            state = 'State=({}, "{}")'.format(self.state, self.reason)
         else:
-            state = 'State={}'.format(resource.state)
-        line = '{}, {}, Type={}'.format(link, state, resource.resource_type)
+            state = 'State={}'.format(self.state)
+        line = '{}, {}, Type={}'.format(link, state, self.resource_type)
         return line
 
     # Create instance url
@@ -478,25 +483,30 @@ class Volume(Resource):
             print(f'Failure when calling delete_volumes: {str(e)}')
             return False
 
+    # Check if a volume is stoppable (should always be false)
+    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
+        return self.generic_is_stoppable(self, today_date, is_weekend)
+
     # Check if a volume is deletable/terminatable
-    @staticmethod
-    def is_terminatable(resource, today_date):
+    def is_terminatable(self, today_date):
         state = 'available'
-        return Resource.generic_is_terminatable(resource, state, today_date)
+        return self.generic_is_terminatable(self, state, today_date)
+
+    # Check if a volume is safe to stop (should always be false)
+    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
+        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
 
     # Check if a volume is safe to delete/terminate
-    @staticmethod
-    def is_safe_to_terminate(resource, today_date):
+    def is_safe_to_terminate(self, today_date):
         resource_type = Volume
-        return Resource.generic_is_safe_to_terminate(resource, resource_type, today_date)
+        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
 
     # Create volume summary
-    @staticmethod
-    def make_resource_summary(resource):
+    def make_resource_summary(self):
         resource_type = Volume
-        link = Resource.make_generic_resource_summary(resource, resource_type)
-        state = 'State={}'.format(resource.state)
-        line = '{}, {}, Type={}'.format(link, state, resource.volume_type)
+        link = self.make_generic_resource_summary(self, resource_type)
+        state = 'State={}'.format(self.state)
+        line = '{}, {}, Type={}'.format(link, state, self.resource_type)
         return line
 
     # Create volume url

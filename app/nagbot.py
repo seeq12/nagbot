@@ -7,7 +7,6 @@ import re
 import sys
 from datetime import datetime
 
-# from . import gdocs
 from . import parsing
 from . import sqaws
 from . import sqslack
@@ -54,8 +53,8 @@ class Nagbot(object):
 
             resources = sorted((r for r in resources if not (len(r.eks_nodegroup_name) > 0)), key=lambda i: i.name)
 
-            resources_to_terminate = (list(r for r in resources if r.is_terminatable(r, TODAY_YYYY_MM_DD)))
-            resources_to_stop = list(r for r in resources if sqaws.is_stoppable(r, TODAY_YYYY_MM_DD))
+            resources_to_terminate = (list(r for r in resources if r.is_terminatable(TODAY_YYYY_MM_DD)))
+            resources_to_stop = list(r for r in resources if r.is_stoppable(today_date=TODAY_YYYY_MM_DD))
 
             if len(resources_to_terminate) > 0:
                 terminate_msg = 'The following %d _stopped_ {}s are due to be *TERMINATED*, ' \
@@ -63,7 +62,7 @@ class Nagbot(object):
                                 % len(resources_to_terminate)
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
-                    terminate_msg += r.make_resource_summmary(r) + \
+                    terminate_msg += r.make_resource_summmary() + \
                         ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
                         .format(r.terminate_after, money_to_string(r.monthly_price), contact)
                     sqaws.set_tag(r.region_name, r.ec2_type, r.resource_id, r.terminate_after_tag_name,
@@ -79,7 +78,7 @@ class Nagbot(object):
                            % len(resources_to_stop)
                 for r in resources_to_stop:
                     contact = sqslack.lookup_user_by_email(r.contact)
-                    stop_msg += r.make_resource_summary(r) + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
+                    stop_msg += r.make_resource_summary() + ', "Stop after"={}, "Monthly Price"={}, Contact={}\n' \
                         .format(r.stop_after, money_to_string(r.monthly_price), contact)
                     sqaws.set_tag(r.region_name, r.ec2_type, r.resource_id, r.stop_after_tag_name,
                                   parsing.add_warning_to_tag(r.stop_after, TODAY_YYYY_MM_DD, replace=True),
@@ -107,18 +106,18 @@ class Nagbot(object):
             resources = resource_type.list_resources()
 
             # Only terminate resources which still meet the criteria for terminating, AND were warned several times
-            resources_to_terminate = list(r for r in resources if r.is_terminatable(r, TODAY_YYYY_MM_DD) and
-                                          r.is_safe_to_terminate(r, TODAY_YYYY_MM_DD))
+            resources_to_terminate = list(r for r in resources if r.is_terminatable(TODAY_YYYY_MM_DD) and
+                                          r.is_safe_to_terminate(TODAY_YYYY_MM_DD))
 
             # Only stop resources which still meet the criteria for stopping, AND were warned recently
-            resources_to_stop = list(r for r in resources if sqaws.is_stoppable(r, TODAY_YYYY_MM_DD) and
-                                     sqaws.is_safe_to_stop(r, TODAY_YYYY_MM_DD))
+            resources_to_stop = list(r for r in resources if r.is_stoppable(today_date=TODAY_YYYY_MM_DD)
+                                     and r.is_safe_to_stop(today_date=TODAY_YYYY_MM_DD))
 
             if len(resources_to_terminate) > 0:
                 message = 'I terminated the following {}s: '.format(ec2_type)
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
-                    message = message + r.make_resource_summary(r) + \
+                    message = message + r.make_resource_summary() + \
                         ', "Terminate after"={}, "Monthly Price"={}, Contact={}\n' \
                         .format(r.terminate_after, money_to_string(r.monthly_price), contact)
                     r.terminate_resource(r.region_name, r.resource_id, dryrun=dryrun)
