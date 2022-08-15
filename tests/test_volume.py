@@ -116,7 +116,7 @@ class TestVolume(unittest.TestCase):
         assert Volume.is_safe_to_terminate(past_date_warned_days_ago, todays_date) is True
 
     @staticmethod
-    @patch('app.sqaws.boto3.client')
+    @patch('app.volume.boto3.client')
     def test_delete_volume(mock_client):
         mock_volume = TestVolume.setup_volume(state='available')
         mock_ec2 = mock_client.return_value
@@ -127,7 +127,7 @@ class TestVolume(unittest.TestCase):
         mock_ec2.delete_volume.assert_called_once_with(VolumeId=mock_volume.resource_id)
 
     @staticmethod
-    @patch('app.sqaws.boto3.client')
+    @patch('app.volume.boto3.client')
     def test_delete_volume_exception(mock_client):
         def raise_error():
             raise RuntimeError('An error occurred (OperationNotPermitted)...')

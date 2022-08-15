@@ -147,7 +147,7 @@ class TestInstance(unittest.TestCase):
         assert mixed_case_instance.terminate_after_tag_name == 'TerminateAfter'
 
     @staticmethod
-    @patch('app.sqaws.boto3.client')
+    @patch('app.instance.boto3.client')
     def test_terminate_instance(mock_client):
         mock_instance = TestInstance.setup_instance(state='stopped')
         mock_ec2 = mock_client.return_value
@@ -158,7 +158,7 @@ class TestInstance(unittest.TestCase):
         mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[mock_instance.resource_id])
 
     @staticmethod
-    @patch('app.sqaws.boto3.client')
+    @patch('app.instance.boto3.client')
     def test_terminate_instance_exception(mock_client):
         # Note: I've seen the call to terminate_instance fail when termination protection is enabled
         def raise_error():
