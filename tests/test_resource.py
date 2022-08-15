@@ -21,7 +21,7 @@ def test_make_tags_dict():
                          'Name': 'super-cool-server.seeq.com'}
 
 
-@patch('app.sqaws.boto3.client')
+@patch('app.resource.boto3.client')
 def test_set_tag(mock_client):
     region_name = 'us-east-1'
     instance_id = 'i-0f06b49c1f16dcfde'
@@ -39,7 +39,7 @@ def test_set_tag(mock_client):
     }])
 
 
-@patch('app.sqaws.boto3.client')
+@patch('app.resource.boto3.client')
 def test_stop_instance(mock_client):
     region_name = 'us-east-1'
     instance_id = 'i-0f06b49c1f16dcfde'
@@ -51,7 +51,7 @@ def test_stop_instance(mock_client):
     mock_ec2.stop_instances.assert_called_once_with(InstanceIds=[instance_id])
 
 
-@patch('app.sqaws.boto3.client')
+@patch('app.resource.boto3.client')
 def test_stop_instance_exception(mock_client):
     # Note: I haven't seen the call to stop_instance fail, but it certainly could.
     def raise_error():
