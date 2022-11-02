@@ -4,6 +4,7 @@ from app import resource
 from .resource import Resource
 import boto3
 from .pricing import PricingData
+from . import parsing
 
 from datetime import datetime
 
@@ -135,31 +136,18 @@ class Instance(Resource):
             print(f'Failure when calling terminate_instances: {str(e)}')
             return False
 
-    def is_stoppable_without_warning(self,is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_stoppable_without_warning(self, is_weekend)
-
-    # Check if an instance is stoppable
-    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_stoppable(self, today_date, is_weekend)
-
-    # Check if an instance is terminatable
+    # Resource is safe to terminate when
+    # warning not none and given before min termination warning
+    # resource is stopped and expiry date is passed i.e. today > expiry date
     def is_terminatable(self, today_date):
-        state = 'stopped'
-        return self.generic_is_terminatable(self, state, today_date)
-
-    # Check if an instance is safe to stop
-    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
-
-    # Check if an instance is safe to terminate
-    def is_safe_to_terminate(self, today_date):
-        resource_type = Instance
-        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
+        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
+        return self.state == 'stopped' and super().passed_terminate_after(parsed_date.expiry_date, today_date) \
+            and super().passed_warning_date(parsed_date.warning_date)
 
     # Create instance summary
     def make_resource_summary(self):
-        resource_type = Instance
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = resource.generic_url_from_id(self.region_name, self.resource_id, 'Instances')
+        link = '<{}|{}>'.format(resource_url, self.name)
         if self.reason:
             state = 'State=({}, "{}")'.format(self.state, self.reason)
         else:
@@ -167,13 +155,22 @@ class Instance(Resource):
         line = '{}, {}, Type={}'.format(link, state, self.resource_type)
         return line
 
-    # Create instance url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Instances'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
-
     # Include all instances in monthly price calculation
     @staticmethod
     def included_in_monthly_price():
         return True
+
+    def is_stoppable_without_warning(self, is_weekend=TODAY_IS_WEEKEND):
+        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
+        return self.state == 'running' and parsed_date.expiry_date is None and \
+            ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
+
+    # Check if a resource is stoppable - currently, only instances should be stoppable
+    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
+        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
+        return self.state == 'running' and (
+            # Treat unspecified "Stop after" dates as being in the past
+            (parsed_date.expiry_date is None and not parsed_date.on_weekends)
+            or (parsed_date.on_weekends and is_weekend)
+            or (resource.passed_terminate_after(parsed_date.expiry_date, today_date)))
+

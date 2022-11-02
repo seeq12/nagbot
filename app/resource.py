@@ -90,6 +90,19 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
         return False
 
 
+def passed_warning_date(warning_date):
+    return warning_date is not None and warning_date <= \
+           MIN_TERMINATION_WARNING_YYYY_MM_DD
+
+
+def passed_terminate_after(expiry_date, today_date):
+    return expiry_date is not None and today_date >= expiry_date
+
+
+def generic_url_from_id(region_name, resource_id, resource_type):
+    return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home?region={region_name}#{resource_type}:' \
+           f'search={resource_id}'
+
 # Class representing a generic EC2 resource & containing functions shared by all resources currently in use
 @dataclass
 class Resource:
@@ -157,63 +170,33 @@ class Resource:
                         throughput=throughput)
 
     # Instance with no "stop after" date should be stopped without warning
-    @staticmethod
-    def generic_is_stoppable_without_warning(resource, is_weekend=TODAY_IS_WEEKEND):
-        if not resource.ec2_type == 'instance':
+    def is_stoppable_without_warning(self):
+        if not self.ec2_type == 'instance':
             return False
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.stop_after)
-        return resource.state == 'running' and parsed_date.expiry_date is None and \
-            ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
+        return True
+        # if not self.ec2_type == 'instance':
+        #     return False
+        # parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
+        # return self.state == 'running' and parsed_date.expiry_date is None and \
+        #     ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
 
     # Check if a resource is stoppable - currently, only instances should be stoppable
-    @staticmethod
-    def generic_is_stoppable(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
-        if not resource.ec2_type == 'instance':
-            return False
-
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.stop_after)
-        return resource.state == 'running' and (
-            # Treat unspecified "Stop after" dates as being in the past
-            (parsed_date.expiry_date is None and not parsed_date.on_weekends)
-            or (parsed_date.on_weekends and is_weekend)
-            or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
-
-    # Check if a resource is terminatable
-    @staticmethod
-    def generic_is_terminatable(resource, state, today_date):
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(resource.terminate_after)
-
-        # For now, we'll only terminate instances which have an explicit 'Terminate after' tag
-        return resource.state == state and (
-            (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+    def is_stoppable(self):
+        return False
+        # if not self.ec2_type == 'instance':
+        #     return False
+        # parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
+        # return self.state == 'running' and (
+        #     # Treat unspecified "Stop after" dates as being in the past
+        #     (parsed_date.expiry_date is None and not parsed_date.on_weekends)
+        #     or (parsed_date.on_weekends and is_weekend)
+        #     or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
 
     # Check if a resource is safe to stop - currently, only instances should be safe to stop
-    @staticmethod
-    def generic_is_safe_to_stop(resource, today_date, is_weekend=TODAY_IS_WEEKEND):
-        if not resource.ec2_type == 'instance':
+    def generic_is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
+        if not self.ec2_type == 'instance':
             return False
 
-        warning_date = parsing.parse_date_tag(resource.stop_after).warning_date
-        return Resource.generic_is_stoppable(resource, today_date, is_weekend=is_weekend) \
+        warning_date = parsing.parse_date_tag(self.stop_after).warning_date
+        return self.generic_is_stoppable(self, today_date, is_weekend=is_weekend) \
             and warning_date is not None and warning_date <= today_date
-
-    # Check if a resource is safe to terminate
-    @staticmethod
-    def generic_is_safe_to_terminate(resource, resource_type, today_date):
-        warning_date = parsing.parse_date_tag(resource.terminate_after).warning_date
-        return resource_type.is_terminatable(resource, today_date) and warning_date is not None and warning_date <= \
-            MIN_TERMINATION_WARNING_YYYY_MM_DD
-
-    # Create resource summary
-    @staticmethod
-    def make_generic_resource_summary(resource, resource_type):
-        resource_id = resource.resource_id
-        resource_url = resource_type.url_from_id(resource.region_name, resource_id)
-        link = '<{}|{}>'.format(resource_url, resource.name)
-        return link
-
-    # Create resource url
-    @staticmethod
-    def generic_url_from_id(region_name, resource_id, resource_type):
-        return 'https://{}.console.aws.amazon.com/ec2/v2/home?region={}#{}:search={}'.format(region_name, region_name,
-                                                                                             resource_type, resource_id)

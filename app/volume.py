@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from app import resource
 from .resource import Resource
 import boto3
-
+from . import parsing
 from datetime import datetime
 
 TODAY = datetime.today()
@@ -81,7 +81,7 @@ class Volume(Resource):
 
         resource_id_tag = 'VolumeId'
         resource_type_tag = 'VolumeType'
-        volume = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
+        volume = super().build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
 
         monthly_price = resource.estimate_monthly_ebs_storage_price(region_name, volume.resource_id,
                                                                     volume.resource_type, size, volume.iops,
@@ -124,40 +124,22 @@ class Volume(Resource):
             print(f'Failure when calling delete_volumes: {str(e)}')
             return False
 
-    def is_stoppable_without_warning(self):
-        return self.generic_is_stoppable_without_warning(self)
-
-    # Check if a volume is stoppable (should always be false)
-    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_stoppable(self, today_date, is_weekend)
-
-    # Check if a volume is deletable/terminatable
-    def is_terminatable(self, today_date):
-        state = 'available'
-        return self.generic_is_terminatable(self, state, today_date)
-
-    # Check if a volume is safe to stop (should always be false)
-    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
+#    def is_stoppable_without_warning(self):
+#        return self.generic_is_stoppable_without_warning(self)
 
     # Check if a volume is safe to delete/terminate
-    def is_safe_to_terminate(self, today_date):
-        resource_type = Volume
-        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
+    def is_terminatable(self, today_date):
+        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
+        return self.state == 'available' and resource.passed_terminate_after(parsed_date.expiry_date, today_date) \
+            and resource.passed_warning_date(parsed_date.warning_date)
 
     # Create volume summary
     def make_resource_summary(self):
-        resource_type = Volume
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = resource.generic_url_from_id(self.region_name, self.resource_id, 'Volumes')
+        link = '<{}|{}>'.format(resource_url, self.name)
         state = 'State={}'.format(self.state)
         line = '{}, {}, Type={}'.format(link, state, self.resource_type)
         return line
-
-    # Create volume url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Volumes'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include volume in monthly price calculation if available
     def included_in_monthly_price(self):
