@@ -10,6 +10,7 @@ from datetime import datetime
 from . import parsing
 from . import resource
 from . import sqslack
+from . import spreadsheet
 from .resource import money_to_string
 from .instance import Instance
 from .volume import Volume
@@ -28,7 +29,7 @@ PREREQUISITES:
 3. PIP dependencies specified in requirements.txt.
 4. Environment variables
    * "SLACK_BOT_TOKEN" containing a token allowing messages to be posted to Slack.
-   * "GDOCS_SERVICE_ACCOUNT_FILENAME" containing the name of the google sheet
+   * "GDOCS_SERVICE_ACCOUNT_FILENAME" containing the name of the google sheet 
 """
 
 
@@ -38,9 +39,15 @@ class Nagbot(object):
         summary_msg = f"Hi, I'm Nagbot v{__version__} :wink: "
         summary_msg += "My job is to make sure we don't forget about unwanted AWS resources and waste money!\n"
 
+        filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
+        workbook = spreadsheet.create_workbook(filename)
         for resource_type in RESOURCE_TYPES:
             ec2_type, ec2_state = resource_type.to_string()
             resources = resource_type.list_resources()
+
+            # add resource's data to a worksheet in the workbook
+            workbook = spreadsheet.add_resource_worksheet_to_workbook(workbook, resources, resource_type.__name__)
+
             num_active_resources = sum(1 for r in resources if r.is_active())
             num_total_resources = len(resources)
 
@@ -61,8 +68,8 @@ class Nagbot(object):
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
                     summary_msg += r.make_resource_summary() + \
-                        f', "Terminate after"={r.terminate_after}, "Monthly Price"={money_to_string(r.monthly_price)}' \
-                        f', Contact={contact}\n'
+                                   f', "Terminate after"={r.terminate_after}, "Monthly Price"={money_to_string(r.monthly_price)}' \
+                                   f', Contact={contact}\n'
                     resource.set_tag(r.region_name, r.ec2_type, r.resource_id, r.terminate_after_tag_name,
                                      parsing.add_warning_to_tag(r.terminate_after, TODAY_YYYY_MM_DD), dryrun=dryrun)
             else:
@@ -71,7 +78,7 @@ class Nagbot(object):
             if resource_type.can_be_stopped():
                 if len(resources_to_stop) > 0:
                     summary_msg += f'The following {len(resources_to_stop)} _{ec2_state}_ {ec2_type}s ' \
-                               'are due to be *STOPPED*, based on the "Stop after" tag:\n'
+                                   'are due to be *STOPPED*, based on the "Stop after" tag:\n'
                     for r in resources_to_stop:
                         contact = sqslack.lookup_user_by_email(r.contact)
                         summary_msg += f'{r.make_resource_summary()}, "Stop after"={r.stop_after}, ' \
@@ -81,6 +88,7 @@ class Nagbot(object):
                                          dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
+        spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
         sqslack.send_message(channel, summary_msg)
 
     def notify(self, channel, dryrun):
@@ -110,8 +118,8 @@ class Nagbot(object):
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
                     message = message + r.make_resource_summary() + \
-                        f', "Terminate after"={r.terminate_after}, "Monthly Price"=' \
-                        f'{money_to_string(r.monthly_price)}, Contact={contact}\n'
+                              f', "Terminate after"={r.terminate_after}, "Monthly Price"=' \
+                              f'{money_to_string(r.monthly_price)}, Contact={contact}\n'
                     r.terminate_resource(dryrun=dryrun)
                 sqslack.send_message(channel, message)
             else:
@@ -123,7 +131,7 @@ class Nagbot(object):
                     for r in resources_to_stop:
                         contact = sqslack.lookup_user_by_email(r.contact)
                         message = message + r.make_resource_summary() + \
-                            f', "Stop after"={r.stop_after}, "Monthly Price"={r.monthly_price}, Contact={contact}\n'
+                                  f', "Stop after"={r.stop_after}, "Monthly Price"={r.monthly_price}, Contact={contact}\n'
                         resource.stop_resource(r.region_name, r.resource_id, dryrun=dryrun)
                         resource.set_tag(r.region_name, r.ec2_type, r.resource_id, r.nagbot_state_tag_name,
                                          f'Stopped on {TODAY_YYYY_MM_DD}', dryrun=dryrun)
