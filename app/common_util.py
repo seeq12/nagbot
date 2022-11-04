@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 import boto3
 import pytz as pytz
 
-
 TODAY = datetime.now(pytz.timezone('US/Pacific'))
 TODAY_YYYY_MM_DD = TODAY.strftime('%Y-%m-%d')
 TODAY_IS_WEEKEND = TODAY.weekday() >= 4  # Days are 0-6. 4=Friday, 5=Saturday, 6=Sunday, 0=Monday
@@ -63,3 +62,8 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
 
 def has_date_passed(expiry_date, today_date):
     return expiry_date is not None and today_date >= expiry_date
+
+
+def generic_url_from_id(region_name, resource_id, resource_type):
+    return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home?region={region_name}#{resource_type}:' \
+           f'search={resource_id}'

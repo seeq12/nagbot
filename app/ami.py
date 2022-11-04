@@ -156,17 +156,11 @@ class Ami(Resource):
 
     # Create ami summary
     def make_resource_summary(self):
-        resource_type = Ami
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Amis')
+        link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
         return line
-
-    # Create ami url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Amis'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include ami in monthly price calculation if available
     def included_in_monthly_price(self):

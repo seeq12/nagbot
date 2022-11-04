@@ -14,7 +14,6 @@ from .volume import Volume
 from .ami import Ami
 from .snapshot import Snapshot
 
-
 RESOURCE_TYPES = [Instance, Ami, Snapshot, Volume]
 
 """
@@ -41,7 +40,7 @@ class Nagbot(object):
             num_total_resources = len(resources)
 
             running_monthly_cost = util.money_to_string(sum(r.monthly_price for r in resources
-                                                       if r.included_in_monthly_price()))
+                                                            if r.included_in_monthly_price()))
             summary_msg += f"\n*{resource_type.__name__}s:*\nWe have {num_active_resources} " \
                            f"{ec2_state} {ec2_type}s right now and {num_total_resources} total.\n" \
                            f"If we continue to run these {ec2_type}s all month, it would cost {running_monthly_cost}.\n"
@@ -56,25 +55,24 @@ class Nagbot(object):
                                'based on the "Terminate after" tag:\n'
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
-                    summary_msg += r.make_resource_summary() + \
-                        f', "Terminate after"={r.terminate_after}, "Monthly Price"={util.money_to_string(r.monthly_price)}' \
-                        f', Contact={contact}\n'
+                    summary_msg += r.make_resource_summary() + f', "Terminate after"={r.terminate_after}, ' \
+                        f'"Monthly Price"={util.money_to_string(r.monthly_price)}, Contact={contact}\n'
                     util.set_tag(r.region_name, r.ec2_type, r.resource_id, r.terminate_after_tag_name,
-                                            parsing.add_warning_to_tag(r.terminate_after, util.TODAY_YYYY_MM_DD), dryrun=dryrun)
+                                 parsing.add_warning_to_tag(r.terminate_after, util.TODAY_YYYY_MM_DD), dryrun=dryrun)
             else:
                 summary_msg += f'No {ec2_type}s are due to be terminated at this time.\n'
             # only 'Instance' resource type can be stopped
             if resource_type == 'instance':
                 if len(resources_to_stop) > 0:
                     summary_msg += f'The following {len(resources_to_stop)} _{ec2_state}_ {ec2_type}s ' \
-                               'are due to be *STOPPED*, based on the "Stop after" tag:\n'
+                                   'are due to be *STOPPED*, based on the "Stop after" tag:\n'
                     for r in resources_to_stop:
                         contact = sqslack.lookup_user_by_email(r.contact)
                         summary_msg += f'{r.make_resource_summary()}, "Stop after"={r.stop_after}, ' \
                                        f'Monthly Price"={util.money_to_string(r.monthly_price)}, Contact={contact}\n'
                         util.set_tag(r.region_name, r.ec2_type, r.resource_id, r.stop_after_tag_name,
-                                                parsing.add_warning_to_tag(r.stop_after, util.TODAY_YYYY_MM_DD, replace=True),
-                                                dryrun=dryrun)
+                                     parsing.add_warning_to_tag(r.stop_after, util.TODAY_YYYY_MM_DD, replace=True),
+                                     dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
         sqslack.send_message(channel, summary_msg)

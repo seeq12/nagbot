@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch
 
 import app.common_util as util
-from app import nagbot
 from app.instance import Instance
 
 
@@ -51,12 +50,12 @@ class TestInstance(unittest.TestCase):
 
     def test_is_stoppable_after_warning(self):
         past_date = self.setup_instance(state='running', stop_after='2019-01-01')
-        today_date = self.setup_instance(state='running', stop_after=nagbot.TODAY_YYYY_MM_DD)
+        today_date = self.setup_instance(state='running', stop_after=util.TODAY_YYYY_MM_DD)
         on_weekends = self.setup_instance(state='running', stop_after='On Weekends')
 
         warning_str = ' (Nagbot: Warned on ' + util.TODAY_YYYY_MM_DD + ')'
         past_date_warned = self.setup_instance(state='running', stop_after='2019-01-01' + warning_str)
-        today_date_warned = self.setup_instance(state='running', stop_after=nagbot.TODAY_YYYY_MM_DD + warning_str)
+        today_date_warned = self.setup_instance(state='running', stop_after=util.TODAY_YYYY_MM_DD + warning_str)
         anything_warned = self.setup_instance(state='running', stop_after='Yummy Udon Noodles' + warning_str)
         on_weekends_warned = self.setup_instance(state='running', stop_after='On Weekends' + warning_str)
 

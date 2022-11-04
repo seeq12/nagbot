@@ -135,15 +135,15 @@ class Instance(Resource):
     def is_stoppable_without_warning(self, is_weekend=util.TODAY_IS_WEEKEND):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
         return self.state == 'running' and parsed_date.expiry_date is None and \
-            ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
+               ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
 
     def is_stoppable(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
         return self.state == 'running' and (
             # Treat unspecified "Stop after" dates as being in the past
-            (parsed_date.expiry_date is None and not parsed_date.on_weekends)
-            or (parsed_date.on_weekends and is_weekend)
-            or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+                (parsed_date.expiry_date is None and not parsed_date.on_weekends)
+                or (parsed_date.on_weekends and is_weekend)
+                or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
 
     def can_be_stopped(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
         return self.is_stoppable(today_date, is_weekend) and self.is_stoppable_without_warning(is_weekend)
@@ -173,20 +173,14 @@ class Instance(Resource):
 
     # Create instance summary
     def make_resource_summary(self):
-        resource_type = Instance
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Instances')
+        link = f'<{resource_url}|{self.name}>'
         if self.reason:
             state = f'State=({self.state}, "{self.reason}")'
         else:
             state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
         return line
-
-    # Create instance url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Instances'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include all instances in monthly price calculation
     @staticmethod

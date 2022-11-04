@@ -141,17 +141,11 @@ class Snapshot(Resource):
 
     # Create snapshot summary
     def make_resource_summary(self):
-        resource_type = Snapshot
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Snapshots')
+        link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
         return line
-
-    # Create snapshot url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Snapshots'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include snapshot in monthly price calculation if available
     def included_in_monthly_price(self):

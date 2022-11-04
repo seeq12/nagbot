@@ -90,15 +90,6 @@ class Resource:
             and warning_date is not None and warning_date <= util.MIN_TERMINATION_WARNING_YYYY_MM_DD
 
     # Create resource summary
-    @staticmethod
-    def make_generic_resource_summary(resource, resource_type):
-        resource_id = resource.resource_id
-        resource_url = resource_type.url_from_id(resource.region_name, resource_id)
-        link = f'<{resource_url}|{resource.name}>'
-        return link
+    def make_resource_summary(self):
+        return ''
 
-    # Create resource url
-    @staticmethod
-    def generic_url_from_id(region_name, resource_id, resource_type):
-        return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home?region={region_name}#{resource_type}:' \
-               f'search={resource_id}'
