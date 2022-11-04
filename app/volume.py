@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-import app.common_util as util
 from app import parsing
+from app import util
 from .resource import Resource
 import boto3
 

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 from unittest.mock import MagicMock
 
-import app.common_util as util
+from app import util
 from app.ami import Ami
 
 

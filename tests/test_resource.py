@@ -1,10 +1,6 @@
 from unittest.mock import patch
 
-import app.common_util as util
-import app.resource
-import app.volume
-import app.instance
-
+from app import util
 import pytest
 
 

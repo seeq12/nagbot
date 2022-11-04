@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-import app.common_util as util
 from app import parsing
+from app import util
 from .resource import Resource
 from .volume import estimate_monthly_ebs_storage_price
 import boto3
@@ -141,12 +141,12 @@ class Instance(Resource):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
         return self.state == 'running' and (
             # Treat unspecified "Stop after" dates as being in the past
-                (parsed_date.expiry_date is None and not parsed_date.on_weekends)
-                or (parsed_date.on_weekends and is_weekend)
-                or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
+            (parsed_date.expiry_date is None and not parsed_date.on_weekends)
+            or (parsed_date.on_weekends and is_weekend)
+            or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
 
     def can_be_stopped(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
-        return self.is_stoppable(today_date, is_weekend) and self.is_stoppable_without_warning(is_weekend)
+        return self.is_stoppable(today_date, is_weekend) or self.is_stoppable_without_warning(is_weekend)
 
     # Check if an instance is stoppable after warning
     def is_safe_to_stop(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):

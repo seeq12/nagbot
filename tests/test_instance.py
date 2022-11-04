@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-import app.common_util as util
+from app import util
 from app.instance import Instance
 
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-import app.common_util as util
 from app import parsing
+from app import util
 from .resource import Resource
 from .snapshot import estimate_monthly_snapshot_price
 import boto3

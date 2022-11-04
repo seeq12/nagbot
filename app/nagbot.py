@@ -6,9 +6,9 @@ import argparse
 import re
 import sys
 
-import app.common_util as util
 from . import parsing
 from . import sqslack
+from . import util
 from .instance import Instance
 from .volume import Volume
 from .ami import Ami
@@ -61,8 +61,8 @@ class Nagbot(object):
                                  parsing.add_warning_to_tag(r.terminate_after, util.TODAY_YYYY_MM_DD), dryrun=dryrun)
             else:
                 summary_msg += f'No {ec2_type}s are due to be terminated at this time.\n'
-            # only 'Instance' resource type can be stopped
-            if resource_type == 'instance':
+            # only 'instance' can be stopped
+            if ec2_type.lower() == 'instance':
                 if len(resources_to_stop) > 0:
                     summary_msg += f'The following {len(resources_to_stop)} _{ec2_state}_ {ec2_type}s ' \
                                    'are due to be *STOPPED*, based on the "Stop after" tag:\n'
