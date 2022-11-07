@@ -186,3 +186,7 @@ class Instance(Resource):
     @staticmethod
     def included_in_monthly_price():
         return True
+
+    @staticmethod
+    def has_stop_status():
+        return True

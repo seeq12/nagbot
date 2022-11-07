@@ -62,7 +62,7 @@ class Nagbot(object):
             else:
                 summary_msg += f'No {ec2_type}s are due to be terminated at this time.\n'
             # only 'instance' can be stopped
-            if ec2_type.lower() == 'instance':
+            if resource_type.has_stop_status():
                 if len(resources_to_stop) > 0:
                     summary_msg += f'The following {len(resources_to_stop)} _{ec2_state}_ {ec2_type}s ' \
                                    'are due to be *STOPPED*, based on the "Stop after" tag:\n'
@@ -109,7 +109,7 @@ class Nagbot(object):
             else:
                 sqslack.send_message(channel, f'No {ec2_type}s were terminated today.')
 
-            if resource_type == "Instance":
+            if resource_type.has_stop_status():
                 if len(resources_to_stop) > 0:
                     message = f'I stopped the following {ec2_type}s: '
                     for r in resources_to_stop:

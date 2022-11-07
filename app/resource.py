@@ -93,3 +93,9 @@ class Resource:
     def make_resource_summary(self):
         return ''
 
+    # Generic behavior is that no resources type has "stop" status.
+    # If a resource can have a "stop" stauts, it will override this static method i.e. Instance
+    @staticmethod
+    def has_stop_status():
+        return False
+
