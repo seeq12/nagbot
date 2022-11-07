@@ -132,7 +132,7 @@ class Snapshot(Resource):
         return self.state == 'completed' and util.has_date_passed(parsed_date.expiry_date, today_date)
 
     # Check if a snapshot is safe to delete/terminate
-    def is_safe_to_terminate_after_warning(self, today_date):
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
         return self.state == 'completed' and super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if a snapshot is active

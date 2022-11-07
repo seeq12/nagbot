@@ -75,7 +75,7 @@ class Resource:
         return False
 
     # Instance with "stop after" date should be stopped after warning period is over
-    def is_safe_to_stop(self, today_date):
+    def is_safe_to_stop(self, today_date=util.TODAY_YYYY_MM_DD):
         return False
 
     # Default implementation. Individual resources defines the implementation.
@@ -83,7 +83,7 @@ class Resource:
         return False
 
     # Check if a resource is safe to terminate
-    def is_safe_to_terminate_after_warning(self, today_date):
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
         warning_date = parsed_date.warning_date
         return util.has_date_passed(parsed_date.expiry_date, today_date) \

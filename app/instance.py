@@ -164,7 +164,7 @@ class Instance(Resource):
     # Check if an instance is safe to stop
 
     # Check if an instance is safe to terminate as warning period is passed too
-    def is_safe_to_terminate_after_warning(self, today_date):
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
         return self.state == 'stopped' and super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if an instance is active

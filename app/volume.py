@@ -5,11 +5,6 @@ from app import util
 from .resource import Resource
 import boto3
 
-from datetime import datetime
-
-TODAY = datetime.today()
-TODAY_IS_WEEKEND = TODAY.weekday() >= 4  # Days are 0-6. 4=Friday, 5=Saturday, 6=Sunday, 0=Monday
-
 
 @dataclass
 class Volume(Resource):
@@ -130,7 +125,7 @@ class Volume(Resource):
         return self.state == 'available' and util.has_date_passed(parsed_date.expiry_date, today_date)
 
     # Check if a volume is safe to delete/terminate - warning period has passed
-    def is_safe_to_terminate_after_warning(self, today_date):
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
         return self.state == 'available' and super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if a volume is active
