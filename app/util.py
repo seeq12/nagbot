@@ -1,6 +1,8 @@
+import re
 from datetime import datetime, timedelta
 
 import boto3
+import botocore
 import pytz as pytz
 
 TODAY = datetime.now(pytz.timezone('US/Pacific'))
@@ -67,3 +69,38 @@ def has_date_passed(expiry_date, today_date):
 def generic_url_from_id(region_name, resource_id, resource_type):
     return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home?region={region_name}#{resource_type}:' \
            f'search={resource_id}'
+
+
+# Estimated monthly costs were formulated by taking the average monthly costs of N. California and Oregon
+def estimate_monthly_snapshot_price(snapshot_type: str, size: float) -> float:
+    standard_monthly_cost = .0525
+    archive_monthly_cost = .0131
+    return standard_monthly_cost*size if snapshot_type == "standard" else archive_monthly_cost*size
+
+
+# Checks the snapshot description to see if the snapshot is part of an AMI or AWS backup.
+# If the snapshot is part of an AMI, but the AMI has been deregistered, then this function will return False
+# for is_ami_snapshot so the remaining snapshot can be cleaned up.
+def is_backup_or_ami_snapshot(description: str, region_name: str) -> bool:
+    is_aws_backup_snapshot = False
+    is_ami_snapshot = False
+    if "AWS Backup service" in description:
+        is_aws_backup_snapshot = True
+    elif "Copied for DestinationAmi" in description:
+        # regex matches the first occurrence of ami, since the snapshot
+        # belongs to the first mentioned ami (destination ami) and not the second (source ami)
+        ami_id = re.search(r'ami-\S*', description).group()
+        is_ami_snapshot = is_ami_registered(ami_id, region_name)
+
+    return is_aws_backup_snapshot, is_ami_snapshot
+
+
+def is_ami_registered(ami_id: str, region_name: str) -> bool:
+    ec2 = boto3.resource('ec2', region_name=region_name)
+    is_registered = True
+    # Retrieve name of AMI, if ClientError or AttributeError is thrown, the AMI does not exist
+    try:
+        ec2.Image(ami_id).name
+    except (botocore.exceptions.ClientError, AttributeError):
+        is_registered = False
+    return is_registered

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import boto3
 
 from . import parsing
-from app import util
+from . import util
 
 
 # Class representing a generic EC2 resource & containing functions shared by all resources currently in use
