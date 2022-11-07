@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import datetime, timedelta
 
@@ -16,14 +17,11 @@ def money_to_string(amount):
 
 
 def quote(value):
-    return '"' + value + '"'
+    return json.dumps(value)
 
 
 def make_tags_dict(tags_list: list) -> dict:
-    tags = dict()
-    for tag in tags_list:
-        tags[tag['Key']] = tag['Value']
-    return tags
+    return {tag['Key']: tag['Value'] for tag in tags_list}
 
 
 def set_tag(region_name: str, type_ec2: str, id_name: str, tag_name: str, tag_value: str, dryrun: bool) -> None:

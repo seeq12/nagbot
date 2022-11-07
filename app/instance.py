@@ -169,7 +169,7 @@ class Instance(Resource):
 
     # Check if an instance is active
     def is_active(self):
-        return True if self.state == 'running' else False
+        return self.state == 'running'
 
     # Create instance summary
     def make_resource_summary(self):
