@@ -47,7 +47,7 @@ class Nagbot(object):
             resources = resource_type.list_resources()
 
             # add resource's data to a worksheet in the workbook
-            workbook = spreadsheet.add_resource_worksheet_to_workbook(workbook, resources, resource_type.__name__)
+            workbook = spreadsheet.add_worksheet_to_workbook(workbook, resources, resource_type.__name__)
 
             num_active_resources = sum(1 for r in resources if r.is_active())
             num_total_resources = len(resources)

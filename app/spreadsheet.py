@@ -9,7 +9,7 @@ def create_workbook(filename):
     return xlsxwriter.Workbook(filename)
 
 
-def add_resource_worksheet_to_workbook(workbook, resources, resource_name):
+def add_worksheet_to_workbook(workbook, resources, resource_name):
     worksheet = workbook.add_worksheet(resource_name)
     resource_header = resources[0].to_header()
 
@@ -22,13 +22,12 @@ def add_resource_worksheet_to_workbook(workbook, resources, resource_name):
     worksheet.set_column(0, len(resource_header)+1, 20)
 
     # Write resources data to worksheet
-    col_num = 1
-    for resource in resources:
+    for col_num, resource in enumerate(resources):
         resource_data = resource.to_list()
         # convert any lists in resource_data from list to formatted string
         resource_data = [", ".join(data) if type(data) is list else data for data in resource_data]
-        worksheet.write_row(col_num, 0, resource_data, standard_format)
-        col_num += 1
+        worksheet.write_row(col_num+1, 0, resource_data, standard_format)
+
     return workbook
 
 
@@ -51,5 +50,4 @@ def upload_spreadsheet_to_s3(filename, workbook):
     os.chdir(cwd)
     temp_directory.cleanup()
 
-    bucket_location = s3_client.get_bucket_location(Bucket=bucket)
     return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket}"
