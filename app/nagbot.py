@@ -29,7 +29,6 @@ PREREQUISITES:
 3. PIP dependencies specified in requirements.txt.
 4. Environment variables
    * "SLACK_BOT_TOKEN" containing a token allowing messages to be posted to Slack.
-   * "GDOCS_SERVICE_ACCOUNT_FILENAME" containing the name of the google sheet 
 """
 
 
