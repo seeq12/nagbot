@@ -89,7 +89,9 @@ class Nagbot(object):
                                          dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
-        spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
+        s3_bucket_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
+        summary_msg += f'\nExcel spreadsheets with resource data can be viewed in the ' \
+                       f'<{s3_bucket_url}|nagbot-spreadsheets> s3 bucket\n'
         sqslack.send_message(channel, summary_msg)
 
     def notify(self, channel, dryrun):
@@ -126,7 +128,7 @@ class Nagbot(object):
             else:
                 sqslack.send_message(channel, f'No {ec2_type}s were terminated today.')
 
-            if resource_type == "Instance":
+            if resource_type.can_be_stopped():
                 if len(resources_to_stop) > 0:
                     message = f'I stopped the following {ec2_type}s: '
                     for r in resources_to_stop:

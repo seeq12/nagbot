@@ -32,6 +32,7 @@ def add_resource_worksheet_to_workbook(workbook, resources, resource_name):
     return workbook
 
 
+# Uploads the spreadsheet to s3 bucket, and returns the bucket url
 def upload_spreadsheet_to_s3(filename, workbook):
     cwd = os.getcwd()
     # save the workbook to a temporary directory
@@ -49,3 +50,6 @@ def upload_spreadsheet_to_s3(filename, workbook):
 
     os.chdir(cwd)
     temp_directory.cleanup()
+
+    bucket_location = s3_client.get_bucket_location(Bucket=bucket)
+    return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket}"
