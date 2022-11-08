@@ -2,6 +2,7 @@ import boto3
 from botocore.exceptions import ClientError
 import os
 import xlsxwriter
+import tempfile
 
 
 def create_workbook(filename):
@@ -32,17 +33,19 @@ def add_resource_worksheet_to_workbook(workbook, resources, resource_name):
 
 
 def upload_spreadsheet_to_s3(filename, workbook):
-    # save the workbook to the cwd by closing
+    cwd = os.getcwd()
+    # save the workbook to a temporary directory
+    temp_directory = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    os.chdir(temp_directory.name)
     workbook.close()
 
-    # Upload the file to S3
+    # Upload the spreadsheet to S3
     s3_client = boto3.client('s3')
     bucket = "nagbot-spreadhseets"
     try:
-        # response = s3_client.upload_file(file_name, bucket, object_name)
         s3_client.upload_file(filename, bucket, filename)
     except ClientError as e:
         print(e)
 
-    # Cleanup and delete the workbook
-    os.remove(filename)
+    os.chdir(cwd)
+    temp_directory.cleanup()
