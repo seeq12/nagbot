@@ -29,6 +29,8 @@ PREREQUISITES:
 3. PIP dependencies specified in requirements.txt.
 4. Environment variables
    * "SLACK_BOT_TOKEN" containing a token allowing messages to be posted to Slack.
+   * "AWS_ACCESS_KEY_ID"
+   * "AWS_SECRET_ACCESS_KEY"
 """
 
 
