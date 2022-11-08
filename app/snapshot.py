@@ -81,7 +81,7 @@ class Snapshot(Resource):
         resource_id_tag = 'SnapshotId'
         resource_type_tag = 'StorageTier'
 
-        monthly_price = util.estimate_monthly_snapshot_price(snapshot_type, size)
+        monthly_price = estimate_monthly_snapshot_price(snapshot_type, size)
 
         snapshot = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
         is_aws_backup_snapshot, is_ami_snapshot = \
@@ -151,3 +151,9 @@ class Snapshot(Resource):
             return True
         else:
             return False
+
+
+def estimate_monthly_snapshot_price(snapshot_type: str, size: float) -> float:
+    standard_monthly_cost = .0525
+    archive_monthly_cost = .0131
+    return standard_monthly_cost*size if snapshot_type == "standard" else archive_monthly_cost*size

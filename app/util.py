@@ -69,13 +69,6 @@ def generic_url_from_id(region_name, resource_id, resource_type):
            f'search={resource_id}'
 
 
-# Estimated monthly costs were formulated by taking the average monthly costs of N. California and Oregon
-def estimate_monthly_snapshot_price(snapshot_type: str, size: float) -> float:
-    standard_monthly_cost = .0525
-    archive_monthly_cost = .0131
-    return standard_monthly_cost*size if snapshot_type == "standard" else archive_monthly_cost*size
-
-
 # Checks the snapshot description to see if the snapshot is part of an AMI or AWS backup.
 # If the snapshot is part of an AMI, but the AMI has been deregistered, then this function will return False
 # for is_ami_snapshot so the remaining snapshot can be cleaned up.

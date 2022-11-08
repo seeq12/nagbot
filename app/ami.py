@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import app.snapshot
 from app import parsing
 from app import util
 from .resource import Resource
@@ -189,7 +190,7 @@ def estimate_monthly_ami_price(ami_type: str, block_device_mappings: list, ami_n
                 snapshot = device["Ebs"]
                 snapshot_type = snapshot["VolumeType"]
                 snapshot_size = snapshot["VolumeSize"]
-                total_cost += util.estimate_monthly_snapshot_price(snapshot_type, snapshot_size)
+                total_cost += app.snapshot.estimate_monthly_snapshot_price(snapshot_type, snapshot_size)
     else:
         print(f"WARNING: {ami_name} is a {ami_type} type AMI with the following block_device_mappings: "
               f"{block_device_mappings}")
