@@ -14,8 +14,8 @@ def add_resource_worksheet_to_workbook(workbook, resources, resource_name):
     resource_header = resources[0].to_header()
 
     # create header in worksheet
-    bold_format = workbook.add_format({'bold': True, "align": "left", "font_size": 15})
-    standard_format = workbook.add_format({"font_size": 12, 'align': 'left'})
+    bold_format = workbook.add_format({'bold': True, "align": "left"})
+    standard_format = workbook.add_format({'align': 'left'})
     worksheet.write_row(0, 0, resource_header, bold_format)
 
     # widen the columns for readability
