@@ -135,7 +135,7 @@ class Instance(Resource):
     def is_stoppable_without_warning(self, is_weekend=util.TODAY_IS_WEEKEND):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
         return self.state == 'running' and parsed_date.expiry_date is None and \
-               ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
+            ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
 
     def is_stoppable(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
@@ -150,11 +150,9 @@ class Instance(Resource):
 
     # Check if an instance is stoppable after warning
     def is_safe_to_stop(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
-        warning_date = parsed_date.warning_date
-        return (self.is_stoppable_without_warning(parsed_date.on_weekends) or
-                (self.is_stoppable(today_date, parsed_date.on_weekends)
-                 and util.has_date_passed(warning_date, util.TODAY_YYYY_MM_DD)))
+        warning_date = parsing.parse_date_tag(self.stop_after).warning_date
+        return (self.is_stoppable_without_warning()) \
+            or (self.is_stoppable() and util.has_date_passed(warning_date))
 
     # Check if an instance is terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):

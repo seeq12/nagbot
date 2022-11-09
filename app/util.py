@@ -60,8 +60,8 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
         return False
 
 
-def has_date_passed(expiry_date, today_date):
-    return expiry_date is not None and today_date >= expiry_date
+def has_date_passed(date_to_check, today_date=TODAY_YYYY_MM_DD):
+    return date_to_check is not None and date_to_check <= today_date
 
 
 def generic_url_from_id(region_name, resource_id, resource_type):
