@@ -117,7 +117,7 @@ class Nagbot(object):
             else:
                 sqslack.send_message(channel, f'No {ec2_type}s were terminated today.')
 
-            if resource_type == "Instance":
+            if resource_type.can_be_stopped():
                 if len(resources_to_stop) > 0:
                     message = f'I stopped the following {ec2_type}s: '
                     for r in resources_to_stop:
