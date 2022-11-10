@@ -197,7 +197,7 @@ def is_backup_or_ami_snapshot(description: str, region_name: str) -> bool:
     is_ami_snapshot = False
     if "AWS Backup service" in description:
         is_aws_backup_snapshot = True
-    elif "Copied for DestinationAmi" in description:
+    elif "Copied for DestinationAmi" or "Created by CreateImage" in description:
         # regex matches the first occurrence of ami, since the snapshot
         # belongs to the first mentioned ami (destination ami) and not the second (source ami)
         ami_id = re.search(r'ami-\S*', description).group()
