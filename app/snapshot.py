@@ -72,13 +72,18 @@ class Snapshot(Resource):
             ec2 = boto3.client('ec2', region_name=region_name)
             describe_snapshots_response = ec2.describe_snapshots(OwnerIds=["self"])
 
+            # Get a list of registered amis for use later when checking
+            # if Snapshot's AMI is registered rather than making expensive API call for AMI Snapshot
+            describe_amis_response = ec2.describe_images(Owners=['self'])
+            registered_amis = [ami_dictionary["ImageId"] for ami_dictionary in describe_amis_response['Images']]
+
             for snapshot_dict in describe_snapshots_response['Snapshots']:
-                snapshot = Snapshot.build_model(region_name, snapshot_dict)
+                snapshot = Snapshot.build_model(region_name, snapshot_dict, registered_amis)
                 snapshots.append(snapshot)
         return snapshots
 
     @staticmethod
-    def build_model(region_name: str, resource_dict: dict):
+    def build_model(region_name: str, resource_dict: dict, registered_amis: list):
         tags = resource.make_tags_dict(resource_dict.get('Tags', []))
         state = resource_dict['State']
         ec2_type = 'snapshot'
@@ -91,7 +96,7 @@ class Snapshot(Resource):
 
         snapshot = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
         is_aws_backup_snapshot, is_ami_snapshot = \
-            is_backup_or_ami_snapshot(resource_dict['Description'], region_name)
+            is_backup_or_ami_snapshot(resource_dict['Description'], region_name, registered_amis)
 
         return Snapshot(region_name=region_name,
                         resource_id=snapshot.resource_id,
@@ -192,15 +197,15 @@ def estimate_monthly_snapshot_price(type: str, size: float) -> float:
 # Checks the snapshot description to see if the snapshot is part of an AMI or AWS backup.
 # If the snapshot is part of an AMI, but the AMI has been deregistered, then this function will return False
 # for is_ami_snapshot so the remaining snapshot can be cleaned up.
-def is_backup_or_ami_snapshot(description: str, region_name: str) -> bool:
+def is_backup_or_ami_snapshot(description: str, region_name: str, registered_amis: list) -> bool:
     is_aws_backup_snapshot = False
     is_ami_snapshot = False
     if "AWS Backup service" in description:
         is_aws_backup_snapshot = True
-    elif "Copied for DestinationAmi" or "Created by CreateImage" in description:
-        # regex matches the first occurrence of ami, since the snapshot
-        # belongs to the first mentioned ami (destination ami) and not the second (source ami)
+    elif "Copied for DestinationAmi" in description or "Created by CreateImage" in description:
+        # regex matches the first occurrence of ami in the description.
         ami_id = re.search(r'ami-\S*', description).group()
-        is_ami_snapshot = ami.is_ami_registered(ami_id, region_name)
+        if ami_id in registered_amis:
+            is_ami_snapshot = True
 
     return is_aws_backup_snapshot, is_ami_snapshot
