@@ -132,12 +132,12 @@ class Instance(Resource):
             return False
 
     # Instance with no stop after tag should be stopped immediately
-    def is_stoppable_without_warning(self, is_weekend=util.TODAY_IS_WEEKEND):
+    def is_stoppable_without_warning(self, is_weekend):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
         return self.state == 'running' and parsed_date.expiry_date is None and \
             ((not parsed_date.on_weekends) or (parsed_date.on_weekends and is_weekend))
 
-    def is_stoppable(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
+    def is_stoppable(self, today_date, is_weekend):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.stop_after)
         return self.state == 'running' and (
             # Treat unspecified "Stop after" dates as being in the past
@@ -146,20 +146,19 @@ class Instance(Resource):
             or (parsed_date.expiry_date is not None and today_date >= parsed_date.expiry_date))
 
     def can_be_stopped(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
-        return self.is_stoppable(today_date, is_weekend) or self.is_stoppable_without_warning(is_weekend)
+        return not (len(self.eks_nodegroup_name) > 0) and (
+                self.is_stoppable(today_date, is_weekend) or self.is_stoppable_without_warning(is_weekend))
 
     # Check if an instance is stoppable after warning
     def is_safe_to_stop(self, today_date=util.TODAY_YYYY_MM_DD, is_weekend=util.TODAY_IS_WEEKEND):
         warning_date = parsing.parse_date_tag(self.stop_after).warning_date
-        return (self.is_stoppable_without_warning()) \
-            or (self.is_stoppable() and util.has_date_passed(warning_date))
+        return not (len(self.eks_nodegroup_name) > 0) and (
+                (self.is_stoppable_without_warning(is_weekend)) or
+                (self.is_stoppable(today_date, is_weekend) and util.has_date_passed(warning_date)))
 
     # Check if an instance is terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
-        return self.state == 'stopped' and util.has_date_passed(parsed_date.expiry_date, today_date)
-
-    # Check if an instance is safe to stop
+        return self.state == 'stopped' and super().can_be_terminated(today_date)
 
     # Check if an instance is safe to terminate as warning period is passed too
     def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):

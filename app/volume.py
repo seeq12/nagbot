@@ -121,8 +121,7 @@ class Volume(Resource):
 
     # Check if a volume is deletable/terminatable without warning
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
-        parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
-        return self.state == 'available' and util.has_date_passed(parsed_date.expiry_date, today_date)
+        return self.state == 'available' and super().can_be_terminated(today_date)
 
     # Check if a volume is safe to delete/terminate - warning period has passed
     def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
