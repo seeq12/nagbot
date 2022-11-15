@@ -158,11 +158,13 @@ class Instance(Resource):
 
     # Check if an instance is terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
-        return self.state == 'stopped' and super().can_be_terminated(today_date)
+        return self.state == 'stopped' and not (len(self.eks_nodegroup_name) > 0) and \
+               super().can_be_terminated(today_date)
 
     # Check if an instance is safe to terminate as warning period is passed too
     def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
-        return self.state == 'stopped' and super().is_safe_to_terminate_after_warning(today_date)
+        return self.state == 'stopped' and not (len(self.eks_nodegroup_name) > 0) and \
+               super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if an instance is active
     def is_active(self):

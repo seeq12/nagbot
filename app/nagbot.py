@@ -1,5 +1,5 @@
 __author__ = "Stephen Rosenthal"
-__version__ = "1.11.2"
+__version__ = "1.11.3"
 __license__ = "MIT"
 
 import argparse
@@ -44,7 +44,7 @@ class Nagbot(object):
             summary_msg += f"\n*{resource_type.__name__}s:*\nWe have {num_active_resources} " \
                            f"{ec2_state} {ec2_type}s right now and {num_total_resources} total.\n" \
                            f"If we continue to run these {ec2_type}s all month, it would cost {running_monthly_cost}.\n"
-            
+
             resources_to_terminate = (list(r for r in resources if r.can_be_terminated()))
             resources_to_stop = list(r for r in resources if (r.can_be_stopped()))
 

@@ -81,15 +81,13 @@ class Resource:
     # Default implementation. Individual resources defines the implementation.
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
-        return not (len(self.eks_nodegroup_name) > 0) and util.has_date_passed(parsed_date.expiry_date, today_date)
-
+        return util.has_date_passed(parsed_date.expiry_date, today_date)
 
     # Check if a resource is safe to terminate
     def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
         parsed_date: parsing.ParsedDate = parsing.parse_date_tag(self.terminate_after)
         warning_date = parsed_date.warning_date
-        return not (len(self.eks_nodegroup_name) > 0) and \
-            util.has_date_passed(parsed_date.expiry_date, today_date) \
+        return util.has_date_passed(parsed_date.expiry_date, today_date) \
             and warning_date is not None and warning_date <= util.MIN_TERMINATION_WARNING_YYYY_MM_DD
 
     # Create resource summary
@@ -97,8 +95,7 @@ class Resource:
         return ''
 
     # Generic behavior is that no resources type has "stop" status.
-    # If a resource can have a "stop" stauts, it will override this static method i.e. Instance
+    # If a resource can have a "stop" status, it will override this static method i.e. Instance
     @staticmethod
     def has_stop_status():
         return False
-
