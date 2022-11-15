@@ -1,13 +1,9 @@
 from dataclasses import dataclass
 
-from app import resource
+from app import parsing
+from app import util
 from .resource import Resource
 import boto3
-
-from datetime import datetime
-
-TODAY = datetime.today()
-TODAY_IS_WEEKEND = TODAY.weekday() >= 4  # Days are 0-6. 4=Friday, 5=Saturday, 6=Sunday, 0=Monday
 
 
 @dataclass
@@ -72,7 +68,7 @@ class Volume(Resource):
     # Get the info about a single EBS volume
     @staticmethod
     def build_model(region_name: str, resource_dict: dict):
-        tags = resource.make_tags_dict(resource_dict.get('Tags', []))
+        tags = util.make_tags_dict(resource_dict.get('Tags', []))
 
         state = resource_dict['State']
         ec2_type = 'volume'
@@ -123,49 +119,25 @@ class Volume(Resource):
             print(f'Failure when calling delete_volumes: {str(e)}')
             return False
 
-    def is_stoppable_without_warning(self):
-        return self.generic_is_stoppable_without_warning(self)
+    # Check if a volume is deletable/terminatable without warning
+    def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
+        return self.state == 'available' and super().can_be_terminated(today_date)
 
-    # Check if a volume is stoppable (should always be false)
-    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_stoppable(self, today_date, is_weekend)
-
-    # Check if a volume is deletable/terminatable
-    def is_terminatable(self, today_date):
-        state = 'available'
-        return self.generic_is_terminatable(self, state, today_date)
-
-    # Check if a volume is safe to stop (should always be false)
-    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
-
-    # Check if a volume is safe to delete/terminate
-    def is_safe_to_terminate(self, today_date):
-        resource_type = Volume
-        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
+    # Check if a volume is safe to delete/terminate - warning period has passed
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
+        return self.state == 'available' and super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if a volume is active
     def is_active(self):
         return True if self.state == 'available' else False
 
-    # Determine if resource has a 'stopped' state - Volumes don't
-    @staticmethod
-    def can_be_stopped() -> bool:
-        return False
-
     # Create volume summary
     def make_resource_summary(self):
-        resource_type = Volume
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Volumes')
+        link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
-        line = f'{link}, {state}, Type={resource_type}'
+        line = f'{link}, {state}, Type={self.resource_type}'
         return line
-
-    # Create volume url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Volumes'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include volume in monthly price calculation if available
     def included_in_monthly_price(self):

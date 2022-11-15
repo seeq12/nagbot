@@ -1,16 +1,10 @@
 from dataclasses import dataclass
 
-from app import resource
-from app import ami
+from app import parsing
+from app import util
 from .resource import Resource
 
 import boto3
-
-from datetime import datetime
-import re
-
-TODAY = datetime.today()
-TODAY_IS_WEEKEND = TODAY.weekday() >= 4  # Days are 0-6. 4=Friday, 5=Saturday, 6=Sunday, 0=Monday
 
 
 @dataclass
@@ -79,7 +73,7 @@ class Snapshot(Resource):
 
     @staticmethod
     def build_model(region_name: str, resource_dict: dict):
-        tags = resource.make_tags_dict(resource_dict.get('Tags', []))
+        tags = util.make_tags_dict(resource_dict.get('Tags', []))
         state = resource_dict['State']
         ec2_type = 'snapshot'
         size = resource_dict['VolumeSize']
@@ -91,7 +85,7 @@ class Snapshot(Resource):
 
         snapshot = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
         is_aws_backup_snapshot, is_ami_snapshot = \
-            is_backup_or_ami_snapshot(resource_dict['Description'], region_name)
+            util.is_backup_or_ami_snapshot(resource_dict['Description'], region_name)
 
         return Snapshot(region_name=region_name,
                         resource_id=snapshot.resource_id,
@@ -128,51 +122,27 @@ class Snapshot(Resource):
             print(f'Failure when calling snapshot.delete(): {str(e)}')
             return False
 
-    def is_stoppable_without_warning(self):
-        return self.generic_is_stoppable_without_warning(self)
-
-    # Check if a snapshot is stoppable (should always be false)
-    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_stoppable(self, today_date, is_weekend)
-
     # Check if a snapshot is deletable/terminatable
-    def is_terminatable(self, today_date):
+    def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
         if self.is_ami_snapshot or self.is_aws_backup_snapshot:
             return False
-        state = 'completed'
-        return self.generic_is_terminatable(self, state, today_date)
-
-    # Check if a snapshot is safe to stop (should always be false)
-    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
+        return self.state == 'completed' and super().can_be_terminated(today_date)
 
     # Check if a snapshot is safe to delete/terminate
-    def is_safe_to_terminate(self, today_date):
-        resource_type = Snapshot
-        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
+        return self.state == 'completed' and super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if a snapshot is active
     def is_active(self):
         return True if self.state == 'completed' else False
 
-    # Determine if resource has a 'stopped' state - Snapshots don't
-    @staticmethod
-    def can_be_stopped() -> bool:
-        return False
-
     # Create snapshot summary
     def make_resource_summary(self):
-        resource_type = Snapshot
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Snapshots')
+        link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
         return line
-
-    # Create snapshot url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Snapshots'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include snapshot in monthly price calculation if available
     def included_in_monthly_price(self):
@@ -182,25 +152,7 @@ class Snapshot(Resource):
             return False
 
 
-# Estimated monthly costs were formulated by taking the average monthly costs of N. California and Oregon
-def estimate_monthly_snapshot_price(type: str, size: float) -> float:
+def estimate_monthly_snapshot_price(snapshot_type: str, size: float) -> float:
     standard_monthly_cost = .0525
     archive_monthly_cost = .0131
-    return standard_monthly_cost*size if type == "standard" else archive_monthly_cost*size
-
-
-# Checks the snapshot description to see if the snapshot is part of an AMI or AWS backup.
-# If the snapshot is part of an AMI, but the AMI has been deregistered, then this function will return False
-# for is_ami_snapshot so the remaining snapshot can be cleaned up.
-def is_backup_or_ami_snapshot(description: str, region_name: str) -> bool:
-    is_aws_backup_snapshot = False
-    is_ami_snapshot = False
-    if "AWS Backup service" in description:
-        is_aws_backup_snapshot = True
-    elif "Copied for DestinationAmi" in description:
-        # regex matches the first occurrence of ami, since the snapshot
-        # belongs to the first mentioned ami (destination ami) and not the second (source ami)
-        ami_id = re.search(r'ami-\S*', description).group()
-        is_ami_snapshot = ami.is_ami_registered(ami_id, region_name)
-
-    return is_aws_backup_snapshot, is_ami_snapshot
+    return standard_monthly_cost*size if snapshot_type == "standard" else archive_monthly_cost*size
