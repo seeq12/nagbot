@@ -5,20 +5,15 @@ __license__ = "MIT"
 import argparse
 import re
 import sys
-from datetime import datetime
 
 from . import parsing
-from . import resource
 from . import sqslack
 from . import spreadsheet
-from .resource import money_to_string
+from . import util
 from .instance import Instance
 from .volume import Volume
 from .ami import Ami
 from .snapshot import Snapshot
-
-TODAY = datetime.today()
-TODAY_YYYY_MM_DD = TODAY.strftime('%Y-%m-%d')
 
 RESOURCE_TYPES = [Instance, Ami, Snapshot, Volume]
 
@@ -40,7 +35,8 @@ class Nagbot(object):
         summary_msg = f"Hi, I'm Nagbot v{__version__} :wink: "
         summary_msg += "My job is to make sure we don't forget about unwanted AWS resources and waste money!\n"
 
-        filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
+        # filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
+        filename = "test.xlsx"  # TODO: need to generate date for filename
         workbook = spreadsheet.create_workbook(filename)
         for resource_type in RESOURCE_TYPES:
             ec2_type, ec2_state = resource_type.to_string()
@@ -52,41 +48,38 @@ class Nagbot(object):
             num_active_resources = sum(1 for r in resources if r.is_active())
             num_total_resources = len(resources)
 
-            running_monthly_cost = money_to_string(sum(r.monthly_price for r in resources
-                                                       if r.included_in_monthly_price()))
+            running_monthly_cost = util.money_to_string(sum(r.monthly_price for r in resources
+                                                            if r.included_in_monthly_price()))
             summary_msg += f"\n*{resource_type.__name__}s:*\nWe have {num_active_resources} " \
                            f"{ec2_state} {ec2_type}s right now and {num_total_resources} total.\n" \
                            f"If we continue to run these {ec2_type}s all month, it would cost {running_monthly_cost}.\n"
 
-            resources = sorted((r for r in resources if not (len(r.eks_nodegroup_name) > 0)), key=lambda i: i.name)
-
-            resources_to_terminate = (list(r for r in resources if r.is_terminatable(TODAY_YYYY_MM_DD)))
-            resources_to_stop = list(r for r in resources if r.is_stoppable(today_date=TODAY_YYYY_MM_DD))
+            resources_to_terminate = (list(r for r in resources if r.can_be_terminated()))
+            resources_to_stop = list(r for r in resources if (r.can_be_stopped()))
 
             if len(resources_to_terminate) > 0:
                 summary_msg += f'The following {len(resources_to_terminate)} {ec2_type}s are due to be *TERMINATED*, ' \
                                'based on the "Terminate after" tag:\n'
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
-                    summary_msg += r.make_resource_summary() + \
-                                   f', "Terminate after"={r.terminate_after}, "Monthly Price"={money_to_string(r.monthly_price)}' \
-                                   f', Contact={contact}\n'
-                    resource.set_tag(r.region_name, r.ec2_type, r.resource_id, r.terminate_after_tag_name,
-                                     parsing.add_warning_to_tag(r.terminate_after, TODAY_YYYY_MM_DD), dryrun=dryrun)
+                    summary_msg += r.make_resource_summary() + f', "Terminate after"={r.terminate_after}, ' \
+                        f'"Monthly Price"={util.money_to_string(r.monthly_price)}, Contact={contact}\n'
+                    util.set_tag(r.region_name, r.ec2_type, r.resource_id, r.terminate_after_tag_name,
+                                 parsing.add_warning_to_tag(r.terminate_after, util.TODAY_YYYY_MM_DD), dryrun=dryrun)
             else:
                 summary_msg += f'No {ec2_type}s are due to be terminated at this time.\n'
-
-            if resource_type.can_be_stopped():
+            # only 'instance' can be stopped
+            if resource_type.has_stop_status():
                 if len(resources_to_stop) > 0:
                     summary_msg += f'The following {len(resources_to_stop)} _{ec2_state}_ {ec2_type}s ' \
                                    'are due to be *STOPPED*, based on the "Stop after" tag:\n'
                     for r in resources_to_stop:
                         contact = sqslack.lookup_user_by_email(r.contact)
                         summary_msg += f'{r.make_resource_summary()}, "Stop after"={r.stop_after}, ' \
-                                       f'Monthly Price"={money_to_string(r.monthly_price)}, Contact={contact}\n'
-                        resource.set_tag(r.region_name, r.ec2_type, r.resource_id, r.stop_after_tag_name,
-                                         parsing.add_warning_to_tag(r.stop_after, TODAY_YYYY_MM_DD, replace=True),
-                                         dryrun=dryrun)
+                                       f'Monthly Price"={util.money_to_string(r.monthly_price)}, Contact={contact}\n'
+                        util.set_tag(r.region_name, r.ec2_type, r.resource_id, r.stop_after_tag_name,
+                                     parsing.add_warning_to_tag(r.stop_after, util.TODAY_YYYY_MM_DD, replace=True),
+                                     dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
         s3_bucket_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
@@ -108,36 +101,34 @@ class Nagbot(object):
             resources = resource_type.list_resources()
 
             # Only terminate resources which still meet the criteria for terminating, AND were warned several times
-            resources_to_terminate = list(r for r in resources if r.is_terminatable(TODAY_YYYY_MM_DD) and
-                                          r.is_safe_to_terminate(TODAY_YYYY_MM_DD))
+            resources_to_terminate = list(r for r in resources if r.can_be_terminated(util.TODAY_YYYY_MM_DD) and
+                                          r.is_safe_to_terminate_after_warning(util.TODAY_YYYY_MM_DD))
 
             # Only stop resources which still meet the criteria for stopping
-            resources_to_stop = list(r for r in resources if (r.is_stoppable_without_warning()) or
-                                     (r.is_stoppable(today_date=TODAY_YYYY_MM_DD)
-                                      and r.is_safe_to_stop(today_date=TODAY_YYYY_MM_DD)))
+            resources_to_stop = list(r for r in resources if (r.is_safe_to_stop()))
 
             if len(resources_to_terminate) > 0:
                 message = f'I terminated the following {ec2_type}s: '
                 for r in resources_to_terminate:
                     contact = sqslack.lookup_user_by_email(r.contact)
                     message = message + r.make_resource_summary() + \
-                              f', "Terminate after"={r.terminate_after}, "Monthly Price"=' \
-                              f'{money_to_string(r.monthly_price)}, Contact={contact}\n'
+                        f', "Terminate after"={r.terminate_after}, "Monthly Price"=' \
+                        f'{util.money_to_string(r.monthly_price)}, Contact={contact}\n'
                     r.terminate_resource(dryrun=dryrun)
                 sqslack.send_message(channel, message)
             else:
                 sqslack.send_message(channel, f'No {ec2_type}s were terminated today.')
 
-            if resource_type.can_be_stopped():
+            if resource_type.has_stop_status():
                 if len(resources_to_stop) > 0:
                     message = f'I stopped the following {ec2_type}s: '
                     for r in resources_to_stop:
                         contact = sqslack.lookup_user_by_email(r.contact)
                         message = message + r.make_resource_summary() + \
-                                  f', "Stop after"={r.stop_after}, "Monthly Price"={r.monthly_price}, Contact={contact}\n'
-                        resource.stop_resource(r.region_name, r.resource_id, dryrun=dryrun)
-                        resource.set_tag(r.region_name, r.ec2_type, r.resource_id, r.nagbot_state_tag_name,
-                                         f'Stopped on {TODAY_YYYY_MM_DD}', dryrun=dryrun)
+                            f', "Stop after"={r.stop_after}, "Monthly Price"={r.monthly_price}, Contact={contact}\n'
+                        util.stop_resource(r.region_name, r.resource_id, dryrun=dryrun)
+                        util.set_tag(r.region_name, r.ec2_type, r.resource_id, r.nagbot_state_tag_name,
+                                     f'Stopped on {util.TODAY_YYYY_MM_DD}', dryrun=dryrun)
                     sqslack.send_message(channel, message)
                 else:
                     sqslack.send_message(channel, f'No {ec2_type}s were stopped today.')

@@ -1,14 +1,10 @@
 from dataclasses import dataclass
 
-from app import resource
+import app.snapshot
+from app import parsing
+from app import util
 from .resource import Resource
-from .snapshot import estimate_monthly_snapshot_price
 import boto3
-import botocore
-
-from datetime import datetime
-TODAY = datetime.today()
-TODAY_IS_WEEKEND = TODAY.weekday() >= 4  # Days are 0-6. 4=Friday, 5=Saturday, 6=Sunday, 0=Monday
 
 
 @dataclass
@@ -75,7 +71,7 @@ class Ami(Resource):
     # Get the info about a single AMI
     @staticmethod
     def build_model(region_name: str, resource_dict: dict):
-        tags = resource.make_tags_dict(resource_dict.get('Tags', []))
+        tags = util.make_tags_dict(resource_dict.get('Tags', []))
 
         state = resource_dict['State']
         ec2_type = 'ami'
@@ -93,26 +89,26 @@ class Ami(Resource):
         monthly_price = estimate_monthly_ami_price(ami_type, block_device_mappings, name)
 
         return Ami(region_name=region_name,
-                      resource_id=ami.resource_id,
-                      state=state,
-                      reason=ami.reason,
-                      resource_type=ami.resource_type,
-                      ec2_type=ec2_type,
-                      eks_nodegroup_name=ami.eks_nodegroup_name,
-                      name=ami.name,
-                      operating_system=ami.operating_system,
-                      monthly_price=monthly_price,
-                      stop_after=ami.stop_after,
-                      terminate_after=ami.terminate_after,
-                      nagbot_state=ami.nagbot_state,
-                      contact=ami.contact,
-                      stop_after_tag_name=ami.stop_after_tag_name,
-                      terminate_after_tag_name=ami.terminate_after_tag_name,
-                      nagbot_state_tag_name=ami.nagbot_state_tag_name,
-                      iops=iops,
-                      volume_type=volume_type,
-                      throughput=ami.throughput,
-                      snapshot_ids=snapshot_ids)
+                   resource_id=ami.resource_id,
+                   state=state,
+                   reason=ami.reason,
+                   resource_type=ami.resource_type,
+                   ec2_type=ec2_type,
+                   eks_nodegroup_name=ami.eks_nodegroup_name,
+                   name=ami.name,
+                   operating_system=ami.operating_system,
+                   monthly_price=monthly_price,
+                   stop_after=ami.stop_after,
+                   terminate_after=ami.terminate_after,
+                   nagbot_state=ami.nagbot_state,
+                   contact=ami.contact,
+                   stop_after_tag_name=ami.stop_after_tag_name,
+                   terminate_after_tag_name=ami.terminate_after_tag_name,
+                   nagbot_state_tag_name=ami.nagbot_state_tag_name,
+                   iops=iops,
+                   volume_type=volume_type,
+                   throughput=ami.throughput,
+                   snapshot_ids=snapshot_ids)
 
     # Delete/terminate an AMI
     def terminate_resource(self, dryrun: bool) -> bool:
@@ -140,49 +136,25 @@ class Ami(Resource):
                     snapshots_deleted = False  # set to False and continue attempting to delete remaining Snapshots
         return snapshots_deleted
 
-    def is_stoppable_without_warning(self):
-        return self.generic_is_stoppable_without_warning(self)
-
-    # Check if an ami is stoppable (should always be false)
-    def is_stoppable(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_stoppable(self, today_date, is_weekend)
-
     # Check if an ami is deletable/terminatable
-    def is_terminatable(self, today_date):
-        state = 'available'
-        return self.generic_is_terminatable(self, state, today_date)
-
-    # Check if an ami is safe to stop (should always be false)
-    def is_safe_to_stop(self, today_date, is_weekend=TODAY_IS_WEEKEND):
-        return self.generic_is_safe_to_stop(self, today_date, is_weekend)
+    def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
+        return self.state == 'available' and super().can_be_terminated(today_date)
 
     # Check if an ami is safe to delete/terminate
-    def is_safe_to_terminate(self, today_date):
-        resource_type = Ami
-        return self.generic_is_safe_to_terminate(self, resource_type, today_date)
+    def is_safe_to_terminate_after_warning(self, today_date=util.TODAY_YYYY_MM_DD):
+        return self.state == 'available' and super().is_safe_to_terminate_after_warning(today_date)
 
     # Check if a instance is active
     def is_active(self):
         return self.state == 'available'
 
-    # Determine if resource has a 'stopped' state - AMIs don't
-    @staticmethod
-    def can_be_stopped() -> bool:
-        return False
-
     # Create ami summary
     def make_resource_summary(self):
-        resource_type = Ami
-        link = self.make_generic_resource_summary(self, resource_type)
+        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Amis')
+        link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
         return line
-
-    # Create ami url
-    @staticmethod
-    def url_from_id(region_name, resource_id):
-        resource_type = 'Amis'
-        return Resource.generic_url_from_id(region_name, resource_id, resource_type)
 
     # Include ami in monthly price calculation if available
     def included_in_monthly_price(self):
@@ -217,8 +189,9 @@ def estimate_monthly_ami_price(ami_type: str, block_device_mappings: list, ami_n
                 snapshot = device["Ebs"]
                 snapshot_type = snapshot["VolumeType"]
                 snapshot_size = snapshot["VolumeSize"]
-                total_cost += estimate_monthly_snapshot_price(snapshot_type, snapshot_size)
+                total_cost += app.snapshot.estimate_monthly_snapshot_price(snapshot_type, snapshot_size)
     else:
         print(f"WARNING: {ami_name} is a {ami_type} type AMI with the following block_device_mappings: "
               f"{block_device_mappings}")
     return total_cost
+
