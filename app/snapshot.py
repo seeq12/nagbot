@@ -32,10 +32,7 @@ class Snapshot(Resource):
                 'Monthly Price',
                 'Region Name',
                 'Snapshot Type',
-                'OS',
                 'Size',
-                'IOPS',
-                'Throughput',
                 'Is Ami Snapshot',
                 'Is AWS Backup Snapshot']
 
@@ -48,10 +45,7 @@ class Snapshot(Resource):
                 self.monthly_price,
                 self.region_name,
                 self.resource_type,
-                self.operating_system,
                 self.size,
-                self.iops,
-                self.throughput,
                 self.is_ami_snapshot,
                 self.is_aws_backup_snapshot]
 
@@ -142,9 +136,12 @@ class Snapshot(Resource):
     def is_active(self):
         return True if self.state == 'completed' else False
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Snapshots')
+
     # Create snapshot summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Snapshots')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'

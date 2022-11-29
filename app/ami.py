@@ -32,9 +32,8 @@ class Ami(Resource):
                 'AMI Type',
                 'OS',
                 'IOPS',
-                'VolumeType'
-                'Throughput',
-                'Snapshot IDs']
+                'VolumeType',
+                'Associated Snapshot IDs']
 
     def to_list(self) -> [str]:
         return [self.resource_id,
@@ -48,7 +47,6 @@ class Ami(Resource):
                 self.operating_system,
                 self.iops,
                 self.volume_type,
-                self.throughput,
                 self.snapshot_ids]
 
     # Get a list of model classes representing important properties of AMIs
@@ -148,9 +146,12 @@ class Ami(Resource):
     def is_active(self):
         return self.state == 'available'
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Images')
+
     # Create ami summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Amis')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
@@ -194,4 +195,3 @@ def estimate_monthly_ami_price(ami_type: str, block_device_mappings: list, ami_n
         print(f"WARNING: {ami_name} is a {ami_type} type AMI with the following block_device_mappings: "
               f"{block_device_mappings}")
     return total_cost
-

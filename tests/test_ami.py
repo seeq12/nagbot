@@ -28,7 +28,7 @@ class TestAmi(unittest.TestCase):
                    nagbot_state_tag_name='',
                    iops=1,
                    volume_type='gp3',
-                   throughput=125,
+                   throughput='',
                    snapshot_ids=['snap-12345', 'snap-4567']
                    )
 

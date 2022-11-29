@@ -14,6 +14,7 @@ from .instance import Instance
 from .volume import Volume
 from .ami import Ami
 from .snapshot import Snapshot
+from .util import TODAY_YYYY_MM_DD
 
 RESOURCE_TYPES = [Instance, Ami, Snapshot, Volume]
 
@@ -35,8 +36,7 @@ class Nagbot(object):
         summary_msg = f"Hi, I'm Nagbot v{__version__} :wink: "
         summary_msg += "My job is to make sure we don't forget about unwanted AWS resources and waste money!\n"
 
-        # filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
-        filename = "test.xlsx"  # TODO: need to generate date for filename
+        filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
         workbook = spreadsheet.create_workbook(filename)
         for resource_type in RESOURCE_TYPES:
             ec2_type, ec2_state = resource_type.to_string()
@@ -83,7 +83,7 @@ class Nagbot(object):
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
         s3_bucket_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
-        summary_msg += f'\nExcel spreadsheets with resource data can be viewed in the ' \
+        summary_msg += f'\nAn Excel spreadsheet containing resource data can be viewed in the ' \
                        f'<{s3_bucket_url}|nagbot-spreadsheets> s3 bucket\n'
         sqslack.send_message(channel, summary_msg)
 

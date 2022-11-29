@@ -65,8 +65,9 @@ def has_date_passed(date_to_check, today_date=TODAY_YYYY_MM_DD):
 
 
 def generic_url_from_id(region_name, resource_id, resource_type):
+    visibility = 'visibility=owned-by-me;' if resource_type == 'Images' else ''
     return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home?region={region_name}#{resource_type}:' \
-           f'search={resource_id}'
+           f'{visibility}search={resource_id}'
 
 
 # Checks the snapshot description to see if the snapshot is part of an AMI or AWS backup.

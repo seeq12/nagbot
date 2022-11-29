@@ -170,9 +170,12 @@ class Instance(Resource):
     def is_active(self):
         return self.state == 'running'
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Instances')
+
     # Create instance summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Instances')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         if self.reason:
             state = f'State=({self.state}, "{self.reason}")'
