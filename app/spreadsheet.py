@@ -44,7 +44,7 @@ def add_worksheet_to_workbook(workbook, resources, resource_name):
 # Uploads the spreadsheet to s3 bucket, and returns the bucket url
 def upload_spreadsheet_to_s3(filename, workbook):
     cwd = os.getcwd()
-    bucket = "nagbot-spreadhseets"
+    bucket = "nagbot-spreadsheets"
 
     try:
         # save the workbook to a temporary directory
