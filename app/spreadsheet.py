@@ -5,11 +5,11 @@ import xlsxwriter
 import tempfile
 
 
-def create_workbook(filename):
+def create_workbook(filename: str) -> object:
     return xlsxwriter.Workbook(filename)
 
 
-def add_worksheet_to_workbook(workbook, resources, resource_name):
+def add_worksheet_to_workbook(workbook: object, resources: list, resource_name: str) -> object:
     worksheet = workbook.add_worksheet(resource_name)
 
     table_data = []
@@ -41,8 +41,19 @@ def add_worksheet_to_workbook(workbook, resources, resource_name):
     return workbook
 
 
+def add_summary_worksheet_to_workbook(workbook: object, total_resource_cost_dict: dict) -> object:
+    worksheet = workbook.add_worksheet("Summary")
+    bold = workbook.add_format({'bold': True})
+    worksheet.write(1, 0, "Total Cost", bold)
+    for col_num, resource in enumerate(total_resource_cost_dict):
+        worksheet.write(0, col_num+1, resource, bold)
+        worksheet.write(1, col_num+1, total_resource_cost_dict[resource])
+    worksheet.set_column(0, 5, 10)
+    return workbook
+
+
 # Uploads the spreadsheet to s3 bucket, and returns the bucket url
-def upload_spreadsheet_to_s3(filename, workbook):
+def upload_spreadsheet_to_s3(filename: str, workbook: object) -> str:
     cwd = os.getcwd()
     bucket = "nagbot-spreadsheets"
 
@@ -65,7 +76,7 @@ def upload_spreadsheet_to_s3(filename, workbook):
     return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket}"
 
 
-def get_col_widths(worksheet):
+def get_col_widths(worksheet: object) -> list:
     # First we find the maximum length of the index column
     idx_max = max([len(str(s)) for s in worksheet.index.values] + [len(str(worksheet.index.name))])
     # Then, we concatenate this to the max of the lengths of column name and its values for each column, left to right

@@ -38,19 +38,24 @@ class Nagbot(object):
 
         filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
         workbook = spreadsheet.create_workbook(filename)
+        total_resource_cost_dict = {}
+
         for resource_type in RESOURCE_TYPES:
             ec2_type, ec2_state = resource_type.to_string()
             resources = resource_type.list_resources()
+            resource_name = resource_type.__name__
 
             # add resource's data to a worksheet in the workbook
-            workbook = spreadsheet.add_worksheet_to_workbook(workbook, resources, resource_type.__name__)
+            workbook = spreadsheet.add_worksheet_to_workbook(workbook, resources, resource_name)
 
             num_active_resources = sum(1 for r in resources if r.is_active())
             num_total_resources = len(resources)
 
             running_monthly_cost = util.money_to_string(sum(r.monthly_price for r in resources
                                                             if r.included_in_monthly_price()))
-            summary_msg += f"\n*{resource_type.__name__}s:*\nWe have {num_active_resources} " \
+            total_resource_cost_dict[f"{resource_name}s"] = float(running_monthly_cost.strip('$'))
+
+            summary_msg += f"\n*{resource_name}s:*\nWe have {num_active_resources} " \
                            f"{ec2_state} {ec2_type}s right now and {num_total_resources} total.\n" \
                            f"If we continue to run these {ec2_type}s all month, it would cost {running_monthly_cost}.\n"
 
@@ -82,6 +87,7 @@ class Nagbot(object):
                                      dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
+        workbook = spreadsheet.add_summary_worksheet_to_workbook(workbook, total_resource_cost_dict)
         s3_bucket_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
         summary_msg += f'\nAn Excel spreadsheet containing resource data can be viewed in the ' \
                        f'<{s3_bucket_url}|nagbot-spreadsheets> s3 bucket\n'
