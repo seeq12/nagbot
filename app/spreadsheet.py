@@ -12,8 +12,6 @@ def create_workbook(filename):
 def add_worksheet_to_workbook(workbook, resources, resource_name):
     worksheet = workbook.add_worksheet(resource_name)
 
-    headers = [{"header": header} for header in resources[0].to_header()]
-
     table_data = []
     # Write resources data to worksheet
     for col_num, resource in enumerate(resources):
@@ -25,12 +23,11 @@ def add_worksheet_to_workbook(workbook, resources, resource_name):
         # add hyperlink to id column
         worksheet.write_url(col_num+1, 0, resource.get_resource_url(), string=resource.resource_id)
 
-    # Create a table in the worksheet out of the resource data
-    worksheet.add_table(0, 0, len(resources), len(headers)-1,
-                        {'columns': headers
-                         })
+    headers = [{"header": header} for header in resources[0].to_header()]
 
-    # Format the worksheet column width to be slightly bigger than the
+    worksheet.add_table(0, 0, len(resources), len(headers)-1, {'columns': headers})
+
+    # Format column width of the worksheet to be slightly bigger than the
     # longest string in each column, starting with the column header
     for col_num in range(len(headers)):
         max_col_width = 0
@@ -47,21 +44,23 @@ def add_worksheet_to_workbook(workbook, resources, resource_name):
 # Uploads the spreadsheet to s3 bucket, and returns the bucket url
 def upload_spreadsheet_to_s3(filename, workbook):
     cwd = os.getcwd()
-    # save the workbook to a temporary directory
-    temp_directory = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
-    os.chdir(temp_directory.name)
-    workbook.close()
-
-    # Upload the spreadsheet to S3
-    s3_client = boto3.client('s3')
     bucket = "nagbot-spreadhseets"
-    try:
-        s3_client.upload_file(filename, bucket, filename)
-    except ClientError as e:
-        print(e)
 
-    os.chdir(cwd)
-    temp_directory.cleanup()
+    try:
+        # save the workbook to a temporary directory
+        temp_directory = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        os.chdir(temp_directory.name)
+        workbook.close()
+        # Upload the spreadsheet to S3
+        s3_client = boto3.client('s3')
+        try:
+            s3_client.upload_file(filename, bucket, filename)
+        except ClientError as e:
+            print(e)
+
+    finally:
+        os.chdir(cwd)
+        temp_directory.cleanup()
 
     return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket}"
 
