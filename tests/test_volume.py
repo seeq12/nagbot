@@ -11,6 +11,7 @@ class TestVolume(unittest.TestCase):
         return Volume(region_name='us-east-1',
                       resource_id='def456',
                       state=state,
+                      creation_timestamp='2022-11-29T21:28:19+00:00',
                       reason='',
                       resource_type='gp2',
                       ec2_type='volume',

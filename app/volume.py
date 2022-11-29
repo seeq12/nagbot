@@ -14,6 +14,7 @@ class Volume(Resource):
     monthly_server_price: float
     monthly_storage_price: float
     size: float
+    creation_timestamp: str
 
     # Return the type and state of the EC2 resource being examined ('volume' and 'unattached')
     @staticmethod
@@ -25,6 +26,7 @@ class Volume(Resource):
         return ['Volume ID',
                 'Name',
                 'State',
+                'Creation Timestamp',
                 'Terminate After',
                 'Contact',
                 'Monthly Price',
@@ -39,6 +41,7 @@ class Volume(Resource):
         return [self.resource_id,
                 self.name,
                 self.state,
+                self.creation_timestamp,
                 self.terminate_after,
                 self.contact,
                 self.monthly_price,
@@ -86,6 +89,7 @@ class Volume(Resource):
         return Volume(region_name=region_name,
                       resource_id=volume.resource_id,
                       state=state,
+                      creation_timestamp=str(resource_dict['CreateTime']),
                       reason=volume.reason,
                       resource_type=volume.resource_type,
                       ec2_type=ec2_type,

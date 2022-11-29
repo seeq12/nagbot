@@ -16,6 +16,7 @@ class Snapshot(Resource):
     size: float
     is_ami_snapshot: bool
     is_aws_backup_snapshot: bool
+    creation_timestamp: str
 
     # Return the type and state of the Snapshot
     @staticmethod
@@ -27,6 +28,7 @@ class Snapshot(Resource):
         return ['Snapshot ID',
                 'Name',
                 'State',
+                'Creation Timestamp',
                 'Terminate After',
                 'Contact',
                 'Monthly Price',
@@ -40,6 +42,7 @@ class Snapshot(Resource):
         return [self.resource_id,
                 self.name,
                 self.state,
+                self.creation_timestamp,
                 self.terminate_after,
                 self.contact,
                 self.monthly_price,
@@ -90,6 +93,7 @@ class Snapshot(Resource):
         return Snapshot(region_name=region_name,
                         resource_id=snapshot.resource_id,
                         state=state,
+                        creation_timestamp=str(resource_dict['StartTime']),
                         reason=snapshot.reason,
                         resource_type=snapshot.resource_type,
                         ec2_type=ec2_type,

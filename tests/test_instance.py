@@ -12,6 +12,7 @@ class TestInstance(unittest.TestCase):
         return Instance(region_name='us-east-1',
                         resource_id='abc123',
                         state=state,
+                        creation_timestamp='2022-11-29T21:28:19+00:00',
                         reason='',
                         resource_type='m4.xlarge',
                         ec2_type='instance',
