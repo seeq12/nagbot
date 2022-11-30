@@ -4,3 +4,4 @@ slackclient==2.9.3
 pygsheets==2.0.5
 pytest==7.1.2
 pytz==2022.4
+XlsxWriter==3.0.3

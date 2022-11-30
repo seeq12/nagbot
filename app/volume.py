@@ -14,6 +14,7 @@ class Volume(Resource):
     monthly_server_price: float
     monthly_storage_price: float
     size: float
+    creation_timestamp: str
 
     # Return the type and state of the EC2 resource being examined ('volume' and 'unattached')
     @staticmethod
@@ -25,6 +26,7 @@ class Volume(Resource):
         return ['Volume ID',
                 'Name',
                 'State',
+                'Creation Timestamp',
                 'Terminate After',
                 'Contact',
                 'Monthly Price',
@@ -39,6 +41,7 @@ class Volume(Resource):
         return [self.resource_id,
                 self.name,
                 self.state,
+                self.creation_timestamp,
                 self.terminate_after,
                 self.contact,
                 self.monthly_price,
@@ -86,6 +89,7 @@ class Volume(Resource):
         return Volume(region_name=region_name,
                       resource_id=volume.resource_id,
                       state=state,
+                      creation_timestamp=str(resource_dict['CreateTime']),
                       reason=volume.reason,
                       resource_type=volume.resource_type,
                       ec2_type=ec2_type,
@@ -131,9 +135,12 @@ class Volume(Resource):
     def is_active(self):
         return True if self.state == 'available' else False
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Volumes')
+
     # Create volume summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Volumes')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'

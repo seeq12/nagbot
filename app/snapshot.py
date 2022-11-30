@@ -5,6 +5,7 @@ from app import util
 from .resource import Resource
 
 import boto3
+import re
 
 
 @dataclass
@@ -15,6 +16,7 @@ class Snapshot(Resource):
     size: float
     is_ami_snapshot: bool
     is_aws_backup_snapshot: bool
+    creation_timestamp: str
 
     # Return the type and state of the Snapshot
     @staticmethod
@@ -26,15 +28,13 @@ class Snapshot(Resource):
         return ['Snapshot ID',
                 'Name',
                 'State',
+                'Creation Timestamp',
                 'Terminate After',
                 'Contact',
                 'Monthly Price',
                 'Region Name',
                 'Snapshot Type',
-                'OS',
                 'Size',
-                'IOPS',
-                'Throughput',
                 'Is Ami Snapshot',
                 'Is AWS Backup Snapshot']
 
@@ -42,15 +42,13 @@ class Snapshot(Resource):
         return [self.resource_id,
                 self.name,
                 self.state,
+                self.creation_timestamp,
                 self.terminate_after,
                 self.contact,
                 self.monthly_price,
                 self.region_name,
                 self.resource_type,
-                self.operating_system,
                 self.size,
-                self.iops,
-                self.throughput,
                 self.is_ami_snapshot,
                 self.is_aws_backup_snapshot]
 
@@ -66,13 +64,18 @@ class Snapshot(Resource):
             ec2 = boto3.client('ec2', region_name=region_name)
             describe_snapshots_response = ec2.describe_snapshots(OwnerIds=["self"])
 
+            # Get a list of registered amis for use later when checking
+            # if Snapshot's AMI is registered rather than making expensive API call for AMI Snapshot
+            describe_amis_response = ec2.describe_images(Owners=['self'])
+            registered_amis = [ami_dictionary["ImageId"] for ami_dictionary in describe_amis_response['Images']]
+
             for snapshot_dict in describe_snapshots_response['Snapshots']:
-                snapshot = Snapshot.build_model(region_name, snapshot_dict)
+                snapshot = Snapshot.build_model(region_name, snapshot_dict, registered_amis)
                 snapshots.append(snapshot)
         return snapshots
 
     @staticmethod
-    def build_model(region_name: str, resource_dict: dict):
+    def build_model(region_name: str, resource_dict: dict, registered_amis: list):
         tags = util.make_tags_dict(resource_dict.get('Tags', []))
         state = resource_dict['State']
         ec2_type = 'snapshot'
@@ -85,11 +88,12 @@ class Snapshot(Resource):
 
         snapshot = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
         is_aws_backup_snapshot, is_ami_snapshot = \
-            util.is_backup_or_ami_snapshot(resource_dict['Description'], region_name)
+            util.is_backup_or_ami_snapshot(resource_dict['Description'], registered_amis)
 
         return Snapshot(region_name=region_name,
                         resource_id=snapshot.resource_id,
                         state=state,
+                        creation_timestamp=str(resource_dict['StartTime']),
                         reason=snapshot.reason,
                         resource_type=snapshot.resource_type,
                         ec2_type=ec2_type,
@@ -136,9 +140,12 @@ class Snapshot(Resource):
     def is_active(self):
         return True if self.state == 'completed' else False
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Snapshots')
+
     # Create snapshot summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Snapshots')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'

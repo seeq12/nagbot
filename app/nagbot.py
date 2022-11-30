@@ -1,5 +1,5 @@
 __author__ = "Stephen Rosenthal"
-__version__ = "1.11.3"
+__version__ = "1.11.4"
 __license__ = "MIT"
 
 import argparse
@@ -8,11 +8,13 @@ import sys
 
 from . import parsing
 from . import sqslack
+from . import spreadsheet
 from . import util
 from .instance import Instance
 from .volume import Volume
 from .ami import Ami
 from .snapshot import Snapshot
+from .util import TODAY_YYYY_MM_DD
 
 RESOURCE_TYPES = [Instance, Ami, Snapshot, Volume]
 
@@ -23,7 +25,8 @@ PREREQUISITES:
 3. PIP dependencies specified in requirements.txt.
 4. Environment variables
    * "SLACK_BOT_TOKEN" containing a token allowing messages to be posted to Slack.
-   * "GDOCS_SERVICE_ACCOUNT_FILENAME" containing the name of the google sheet
+   * "AWS_ACCESS_KEY_ID"
+   * "AWS_SECRET_ACCESS_KEY"
 """
 
 
@@ -33,17 +36,28 @@ class Nagbot(object):
         summary_msg = f"Hi, I'm Nagbot v{__version__} :wink: "
         summary_msg += "My job is to make sure we don't forget about unwanted AWS resources and waste money!\n"
 
+        filename = f"{TODAY_YYYY_MM_DD}-NagBot-Report.xlsx"
+        workbook = spreadsheet.create_workbook(filename)
+        total_resource_cost_dict = {}
+
         for resource_type in RESOURCE_TYPES:
             ec2_type, ec2_state = resource_type.to_string()
             resources = resource_type.list_resources()
+            resource_name = resource_type.__name__
+
+            # add resource's data to a worksheet in the workbook
+            workbook = spreadsheet.add_worksheet_to_workbook(workbook, resources, resource_name)
+
             num_active_resources = sum(1 for r in resources if r.is_active())
             num_total_resources = len(resources)
 
             running_monthly_cost = util.money_to_string(sum(r.monthly_price for r in resources
                                                             if r.included_in_monthly_price()))
-            summary_msg += f"\n*{resource_type.__name__}s:*\nWe have {num_active_resources} " \
+            total_resource_cost_dict[f"{resource_name}s"] = float(running_monthly_cost.strip('$'))
+
+            summary_msg += f"\n*{resource_name}s:*\nWe have {num_active_resources} " \
                            f"{ec2_state} {ec2_type}s right now and {num_total_resources} total.\n" \
-                           f"If we continue to run these {ec2_type}s all month, it would cost {running_monthly_cost}.\n"
+                           f"The estimated monthly cost of these {ec2_type}s is {running_monthly_cost}.\n"
 
             resources_to_terminate = (list(r for r in resources if r.can_be_terminated()))
             resources_to_stop = list(r for r in resources if (r.can_be_stopped()))
@@ -73,6 +87,10 @@ class Nagbot(object):
                                      dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
+        workbook = spreadsheet.add_summary_worksheet_to_workbook(workbook, total_resource_cost_dict)
+        s3_file_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
+        summary_msg += f'\nAn Excel file containing resource data can be downloaded from the ' \
+                       f'nagbot-spreadsheets s3 bucket <{s3_file_url}|here>\n'
         sqslack.send_message(channel, summary_msg)
 
     def notify(self, channel, dryrun):

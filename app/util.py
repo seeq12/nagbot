@@ -65,23 +65,24 @@ def has_date_passed(date_to_check, today_date=TODAY_YYYY_MM_DD):
 
 
 def generic_url_from_id(region_name, resource_id, resource_type):
+    visibility = 'visibility=owned-by-me;' if resource_type == 'Images' else ''
     return f'https://{region_name}.console.aws.amazon.com/ec2/v2/home?region={region_name}#{resource_type}:' \
-           f'search={resource_id}'
+           f'{visibility}search={resource_id}'
 
 
 # Checks the snapshot description to see if the snapshot is part of an AMI or AWS backup.
 # If the snapshot is part of an AMI, but the AMI has been deregistered, then this function will return False
 # for is_ami_snapshot so the remaining snapshot can be cleaned up.
-def is_backup_or_ami_snapshot(description: str, region_name: str) -> bool:
+def is_backup_or_ami_snapshot(description: str, registered_amis: list) -> bool:
     is_aws_backup_snapshot = False
     is_ami_snapshot = False
     if "AWS Backup service" in description:
         is_aws_backup_snapshot = True
-    elif "Copied for DestinationAmi" in description:
-        # regex matches the first occurrence of ami, since the snapshot
-        # belongs to the first mentioned ami (destination ami) and not the second (source ami)
+    elif "Copied for DestinationAmi" in description or "Created by CreateImage" in description:
+        # regex matches the first occurrence of ami in the description.
         ami_id = re.search(r'ami-\S*', description).group()
-        is_ami_snapshot = is_ami_registered(ami_id, region_name)
+        if ami_id in registered_amis:
+            is_ami_snapshot = True
 
     return is_aws_backup_snapshot, is_ami_snapshot
 

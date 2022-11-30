@@ -12,6 +12,7 @@ class TestAmi(unittest.TestCase):
         return Ami(region_name='us-east-1',
                    resource_id='def456',
                    state=state,
+                   creation_timestamp='2022-11-29T21:28:19+00:00',
                    reason='',
                    resource_type='machine',
                    ec2_type='ami',
@@ -28,7 +29,7 @@ class TestAmi(unittest.TestCase):
                    nagbot_state_tag_name='',
                    iops=1,
                    volume_type='gp3',
-                   throughput=125,
+                   throughput='',
                    snapshot_ids=['snap-12345', 'snap-4567']
                    )
 

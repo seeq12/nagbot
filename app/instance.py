@@ -16,6 +16,7 @@ class Instance(Resource):
     monthly_server_price: float
     monthly_storage_price: float
     size: float
+    creation_timestamp: str
 
     # Return the type and state of the EC2 resource being examined ('instance' and 'running')
     @staticmethod
@@ -27,6 +28,7 @@ class Instance(Resource):
         return ['Instance ID',
                 'Name',
                 'State',
+                'Creation Timestamp',
                 'Stop After',
                 'Terminate After',
                 'Contact',
@@ -44,13 +46,14 @@ class Instance(Resource):
         return [self.resource_id,
                 self.name,
                 self.state,
+                self.creation_timestamp,
                 self.stop_after,
                 self.terminate_after,
                 self.contact,
                 self.nagbot_state,
-                util.money_to_string(self.monthly_price),
-                util.money_to_string(self.monthly_server_price),
-                util.money_to_string(self.monthly_storage_price),
+                self.monthly_price,
+                self.monthly_server_price,
+                self.monthly_storage_price,
                 self.region_name,
                 self.resource_type,
                 self.reason,
@@ -98,6 +101,7 @@ class Instance(Resource):
         return Instance(region_name=region_name,
                         resource_id=instance.resource_id,
                         state=state,
+                        creation_timestamp=str(resource_dict['LaunchTime']),
                         reason=instance.reason,
                         resource_type=instance.resource_type,
                         ec2_type=ec2_type,
@@ -170,9 +174,12 @@ class Instance(Resource):
     def is_active(self):
         return self.state == 'running'
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Instances')
+
     # Create instance summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Instances')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         if self.reason:
             state = f'State=({self.state}, "{self.reason}")'

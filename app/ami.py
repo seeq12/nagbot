@@ -14,6 +14,7 @@ class Ami(Resource):
     monthly_price: float
     volume_type: str
     snapshot_ids: [str]  # list of strings representing ids of each Snapshot making up the AMI
+    creation_timestamp: str
 
     # Return the type and state of the AMI
     @staticmethod
@@ -25,6 +26,7 @@ class Ami(Resource):
         return ['AMI ID',
                 'Name',
                 'State',
+                'Creation Timestamp',
                 'Terminate After',
                 'Contact',
                 'Monthly Price',
@@ -32,14 +34,14 @@ class Ami(Resource):
                 'AMI Type',
                 'OS',
                 'IOPS',
-                'VolumeType'
-                'Throughput',
-                'Snapshot IDs']
+                'VolumeType',
+                'Associated Snapshot IDs']
 
     def to_list(self) -> [str]:
         return [self.resource_id,
                 self.name,
                 self.state,
+                self.creation_timestamp,
                 self.terminate_after,
                 self.contact,
                 self.monthly_price,
@@ -48,7 +50,6 @@ class Ami(Resource):
                 self.operating_system,
                 self.iops,
                 self.volume_type,
-                self.throughput,
                 self.snapshot_ids]
 
     # Get a list of model classes representing important properties of AMIs
@@ -78,7 +79,6 @@ class Ami(Resource):
 
         resource_id_tag = 'ImageId'
         resource_type_tag = 'ImageType'
-        name = resource_dict[resource_id_tag]
         ami = Resource.build_generic_model(tags, resource_dict, region_name, resource_id_tag, resource_type_tag)
         ami_type = resource_dict['RootDeviceType']  # either instance-store or ebs
 
@@ -86,16 +86,17 @@ class Ami(Resource):
         # Get snapshot id of any Snapshots making up the AMI if there are any
         snapshot_ids = [device['Ebs']['SnapshotId'] for device in block_device_mappings if "Ebs" in device.keys()]
         iops, volume_type = get_ami_iops_and_volume_type(block_device_mappings)
-        monthly_price = estimate_monthly_ami_price(ami_type, block_device_mappings, name)
+        monthly_price = estimate_monthly_ami_price(ami_type, block_device_mappings, resource_dict[resource_id_tag])
 
         return Ami(region_name=region_name,
                    resource_id=ami.resource_id,
                    state=state,
+                   creation_timestamp=str(resource_dict['CreationDate']),
                    reason=ami.reason,
                    resource_type=ami.resource_type,
                    ec2_type=ec2_type,
                    eks_nodegroup_name=ami.eks_nodegroup_name,
-                   name=ami.name,
+                   name=resource_dict['Name'],
                    operating_system=ami.operating_system,
                    monthly_price=monthly_price,
                    stop_after=ami.stop_after,
@@ -148,9 +149,12 @@ class Ami(Resource):
     def is_active(self):
         return self.state == 'available'
 
+    def get_resource_url(self):
+        return util.generic_url_from_id(self.region_name, self.resource_id, 'Images')
+
     # Create ami summary
     def make_resource_summary(self):
-        resource_url = util.generic_url_from_id(self.region_name, self.resource_id, 'Amis')
+        resource_url = self.get_resource_url()
         link = f'<{resource_url}|{self.name}>'
         state = f'State={self.state}'
         line = f'{link}, {state}, Type={self.resource_type}'
@@ -194,4 +198,3 @@ def estimate_monthly_ami_price(ami_type: str, block_device_mappings: list, ami_n
         print(f"WARNING: {ami_name} is a {ami_type} type AMI with the following block_device_mappings: "
               f"{block_device_mappings}")
     return total_cost
-

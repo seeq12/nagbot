@@ -13,7 +13,8 @@ Nagbot is a side project I developed at [Seeq](https://seeq.com) and launched in
 Nagbot does the following:
 1. Query for all EC2 Instances, Volumes, AMIs, and Snapshots in an account, along 
    with important metadata (Name, OS, Monthly Price, size, etc.)
-2. Post this information to a Slack channel and also dump the table into a Google Sheet for analysis and auditing
+2. Post this information to a Slack channel and also dump the table into an Excel spreadsheet in an S3 bucket for 
+   analysis and auditing
 3. Look at the "Stop after" tag, which is by convention a YYYY-MM-DD date, and after a warning period, stop any 
    unwanted resources.
 4. Look at the "Terminate after" tag, which is by convention a YYYY-MM-DD date, and terminate any unwanted resources.
