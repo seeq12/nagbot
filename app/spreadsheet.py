@@ -49,6 +49,8 @@ def add_summary_worksheet_to_workbook(workbook: object, total_resource_cost_dict
         worksheet.write(0, col_num+1, resource, bold)
         worksheet.write(1, col_num+1, total_resource_cost_dict[resource])
     worksheet.set_column(0, 5, 10)
+    # set summary worksheet as the first visible sheet in the workbook
+    worksheet.activate()
     return workbook
 
 
