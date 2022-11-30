@@ -1,5 +1,5 @@
 __author__ = "Stephen Rosenthal"
-__version__ = "1.11.3"
+__version__ = "1.11.4"
 __license__ = "MIT"
 
 import argparse
@@ -57,7 +57,7 @@ class Nagbot(object):
 
             summary_msg += f"\n*{resource_name}s:*\nWe have {num_active_resources} " \
                            f"{ec2_state} {ec2_type}s right now and {num_total_resources} total.\n" \
-                           f"If we continue to run these {ec2_type}s all month, it would cost {running_monthly_cost}.\n"
+                           f"The estimated monthly cost of these {ec2_type}s is {running_monthly_cost}.\n"
 
             resources_to_terminate = (list(r for r in resources if r.can_be_terminated()))
             resources_to_stop = list(r for r in resources if (r.can_be_stopped()))
@@ -88,9 +88,9 @@ class Nagbot(object):
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
         workbook = spreadsheet.add_summary_worksheet_to_workbook(workbook, total_resource_cost_dict)
-        s3_bucket_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
-        summary_msg += f'\nAn Excel spreadsheet containing resource data can be viewed in the ' \
-                       f'<{s3_bucket_url}|nagbot-spreadsheets> s3 bucket\n'
+        s3_file_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
+        summary_msg += f'\nAn Excel file containing resource data can be downloaded from the ' \
+                       f'nagbot-spreadsheets s3 bucket <{s3_file_url}|here>\n'
         sqslack.send_message(channel, summary_msg)
 
     def notify(self, channel, dryrun):

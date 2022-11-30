@@ -75,7 +75,7 @@ def upload_spreadsheet_to_s3(filename: str, workbook: object) -> str:
         os.chdir(cwd)
         temp_directory.cleanup()
 
-    return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket}"
+    return f"https://s3.console.aws.amazon.com/s3/buckets/{bucket}?prefix={filename}"
 
 
 def get_col_widths(worksheet: object) -> list:
