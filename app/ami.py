@@ -125,6 +125,7 @@ class Ami(Resource):
             return e
 
         # Delete Snapshots making up the AMI once the AMI is deleted
+        errors = ""
         if not dryrun:
             for snapshot_id in self.snapshot_ids:
                 snapshot = ec2.Snapshot(snapshot_id)
@@ -133,8 +134,8 @@ class Ami(Resource):
                     snapshot.delete()  # delete() returns None
                 except Exception as e:
                     print(f'Failure when calling snapshot.delete(): {str(e)}')
-                    return e
-        return True
+                    errors += f"{e}\n"
+        return errors if errors.strip() else True
 
     # Check if an ami is deletable/terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
