@@ -112,7 +112,7 @@ class Ami(Resource):
                    snapshot_ids=snapshot_ids)
 
     # Delete/terminate an AMI
-    def terminate_resource(self, dryrun: bool) -> bool:
+    def terminate_resource(self, dryrun: bool):
         print(f'Deleting AMI: {str(self.resource_id)} and any Snapshots it is composed of ...')
         ec2 = boto3.resource('ec2', region_name=self.region_name)
         image = ec2.Image(self.resource_id)
@@ -122,7 +122,7 @@ class Ami(Resource):
                 image.deregister()  # .deregister() returns None
         except Exception as e:
             print(f'Failure when calling image.deregister(): {str(e)}')
-            return e
+            return str(e)
 
         # Delete Snapshots making up the AMI once the AMI is deleted
         errors = ""
@@ -134,7 +134,7 @@ class Ami(Resource):
                     snapshot.delete()  # delete() returns None
                 except Exception as e:
                     print(f'Failure when calling snapshot.delete(): {str(e)}')
-                    errors += f"{e}\n"
+                    errors += f"{str(e)}\n"
         return errors if errors.strip() else True
 
     # Check if an ami is deletable/terminatable

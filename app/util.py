@@ -47,7 +47,7 @@ def get_tag_names(tags: dict) -> tuple:
     return stop_after_tag_name, terminate_after_tag_name, nagbot_state_tag_name
 
 
-def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
+def stop_resource(region_name: str, instance_id: str, dryrun: bool):
     print(f'Stopping instance: {str(instance_id)}...')
     ec2 = boto3.client('ec2', region_name=region_name)
     try:
@@ -57,7 +57,7 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
         return True
     except Exception as e:
         print(f'Failure when calling stop_instances: {str(e)}')
-        return e
+        return str(e)
 
 
 def has_date_passed(date_to_check, today_date=TODAY_YYYY_MM_DD):

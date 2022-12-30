@@ -123,7 +123,7 @@ class Instance(Resource):
                         throughput=instance.throughput)
 
     # Terminate an EC2 instance
-    def terminate_resource(self, dryrun: bool) -> bool:
+    def terminate_resource(self, dryrun: bool):
         print(f'Terminating instance: {str(self.resource_id)}...')
         ec2 = boto3.client('ec2', region_name=self.region_name)
         try:
@@ -133,7 +133,7 @@ class Instance(Resource):
             return True
         except Exception as e:
             print(f'Failure when calling terminate_instances: {str(e)}')
-            return e
+            return str(e)
 
     # Instance with no stop after tag should be stopped immediately
     def is_stoppable_without_warning(self, is_weekend):

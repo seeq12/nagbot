@@ -111,7 +111,7 @@ class Volume(Resource):
                       throughput=volume.throughput)
 
     # Delete/terminate an EBS volume
-    def terminate_resource(self, dryrun: bool) -> bool:
+    def terminate_resource(self, dryrun: bool):
         print(f'Deleting volume: {str(self.resource_id)}...')
         ec2 = boto3.client('ec2', region_name=self.region_name)
         try:
@@ -121,7 +121,7 @@ class Volume(Resource):
             return True
         except Exception as e:
             print(f'Failure when calling delete_volumes: {str(e)}')
-            return e
+            return str(e)
 
     # Check if a volume is deletable/terminatable without warning
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
