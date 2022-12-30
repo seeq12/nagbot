@@ -124,7 +124,7 @@ class Snapshot(Resource):
             return True
         except Exception as e:
             print(f'Failure when calling snapshot.delete(): {str(e)}')
-            return False
+            return e
 
     # Check if a snapshot is deletable/terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):

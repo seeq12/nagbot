@@ -121,7 +121,7 @@ class Volume(Resource):
             return True
         except Exception as e:
             print(f'Failure when calling delete_volumes: {str(e)}')
-            return False
+            return e
 
     # Check if a volume is deletable/terminatable without warning
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):

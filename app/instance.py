@@ -133,7 +133,7 @@ class Instance(Resource):
             return True
         except Exception as e:
             print(f'Failure when calling terminate_instances: {str(e)}')
-            return False
+            return e
 
     # Instance with no stop after tag should be stopped immediately
     def is_stoppable_without_warning(self, is_weekend):

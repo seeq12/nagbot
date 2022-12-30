@@ -122,10 +122,9 @@ class Ami(Resource):
                 image.deregister()  # .deregister() returns None
         except Exception as e:
             print(f'Failure when calling image.deregister(): {str(e)}')
-            return False
+            return e
 
         # Delete Snapshots making up the AMI once the AMI is deleted
-        snapshots_deleted = True
         if not dryrun:
             for snapshot_id in self.snapshot_ids:
                 snapshot = ec2.Snapshot(snapshot_id)
@@ -134,8 +133,8 @@ class Ami(Resource):
                     snapshot.delete()  # delete() returns None
                 except Exception as e:
                     print(f'Failure when calling snapshot.delete(): {str(e)}')
-                    snapshots_deleted = False  # set to False and continue attempting to delete remaining Snapshots
-        return snapshots_deleted
+                    return e  # set to False and continue attempting to delete remaining Snapshots
+        return True
 
     # Check if an ami is deletable/terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):

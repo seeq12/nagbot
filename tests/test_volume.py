@@ -143,7 +143,7 @@ class TestVolume(unittest.TestCase):
         mock_ec2 = mock_client.return_value
         mock_ec2.delete_volume.side_effect = lambda *args, **kw: raise_error()
 
-        assert not mock_volume.terminate_resource(dryrun=False)
+        assert mock_volume.terminate_resource(dryrun=False) is not True
 
         mock_client.assert_called_once_with('ec2', region_name=mock_volume.region_name)
         mock_ec2.delete_volume.assert_called_once_with(VolumeId=mock_volume.resource_id)

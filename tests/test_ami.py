@@ -154,7 +154,7 @@ class TestAmi(unittest.TestCase):
         mock_image.deregister.side_effect = lambda *args, **kw: raise_error()
         mock_snapshot.delete.side_effect = lambda *args, **kw: raise_error()
 
-        assert not mock_ami.terminate_resource(dryrun=False)
+        assert mock_ami.terminate_resource(dryrun=False) is not True
 
         mock_resource.assert_called_once_with('ec2', region_name=mock_ami.region_name)
         mock_image.deregister.assert_called_once()

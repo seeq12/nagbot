@@ -160,7 +160,7 @@ class TestSnapshot(unittest.TestCase):
         mock_ec2.Snapshot.return_value = mock_snapshot_aws
         mock_snapshot_aws.delete.side_effect = lambda *args, **kw: raise_error()
 
-        assert not mock_snapshot.terminate_resource(dryrun=False)
+        assert mock_snapshot.terminate_resource(dryrun=False) is not True
 
         mock_resource.assert_called_once_with('ec2', region_name=mock_snapshot.region_name)
         mock_snapshot_aws.delete.assert_called_once()

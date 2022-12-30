@@ -57,7 +57,7 @@ def stop_resource(region_name: str, instance_id: str, dryrun: bool) -> bool:
         return True
     except Exception as e:
         print(f'Failure when calling stop_instances: {str(e)}')
-        return False
+        return e
 
 
 def has_date_passed(date_to_check, today_date=TODAY_YYYY_MM_DD):
