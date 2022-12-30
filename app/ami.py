@@ -133,7 +133,7 @@ class Ami(Resource):
                     snapshot.delete()  # delete() returns None
                 except Exception as e:
                     print(f'Failure when calling snapshot.delete(): {str(e)}')
-                    return e  # set to False and continue attempting to delete remaining Snapshots
+                    return e
         return True
 
     # Check if an ami is deletable/terminatable
