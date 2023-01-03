@@ -59,7 +59,7 @@ def test_stop_instance_exception(mock_client):
     mock_ec2 = mock_client.return_value
     mock_ec2.stop_instances.side_effect = lambda *args, **kw: raise_error()
 
-    assert not util.stop_resource(region_name, instance_id, dryrun=False)
+    assert util.stop_resource(region_name, instance_id, dryrun=False) is not True
 
     mock_client.assert_called_once_with('ec2', region_name=region_name)
     mock_ec2.stop_instances.assert_called_once_with(InstanceIds=[instance_id])

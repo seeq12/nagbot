@@ -170,7 +170,7 @@ class TestInstance(unittest.TestCase):
         mock_instance = TestInstance.setup_instance(state='stopped')
         mock_ec2 = mock_client.return_value
 
-        assert mock_instance.terminate_resource(dryrun=False)
+        assert mock_instance.terminate_resource(dryrun=False) is None
 
         mock_client.assert_called_once_with('ec2', region_name=mock_instance.region_name)
         mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[mock_instance.resource_id])
@@ -187,7 +187,7 @@ class TestInstance(unittest.TestCase):
         mock_ec2 = mock_client.return_value
         mock_ec2.terminate_instances.side_effect = lambda *args, **kw: raise_error()
 
-        assert not mock_instance.terminate_resource(dryrun=False)
+        assert mock_instance.terminate_resource(dryrun=False) is not None
 
         mock_client.assert_called_once_with('ec2', region_name=mock_instance.region_name)
         mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[mock_instance.resource_id])

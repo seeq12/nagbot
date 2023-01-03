@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 
-from app import parsing
 from app import util
+from typing import Union
 from .resource import Resource
 
 import boto3
-import re
 
 
 @dataclass
@@ -114,17 +113,17 @@ class Snapshot(Resource):
                         is_ami_snapshot=is_ami_snapshot,
                         is_aws_backup_snapshot=is_aws_backup_snapshot)
 
-    def terminate_resource(self, dryrun: bool) -> bool:
+    def terminate_resource(self, dryrun: bool) -> Union[None, str]:
         print(f'Deleting snapshot: {str(self.resource_id)}...')
         ec2 = boto3.resource('ec2', region_name=self.region_name)
         snapshot = ec2.Snapshot(self.resource_id)
         try:
             if not dryrun:
                 snapshot.delete()  # delete() returns None
-            return True
+            return None
         except Exception as e:
             print(f'Failure when calling snapshot.delete(): {str(e)}')
-            return False
+            return str(e)
 
     # Check if a snapshot is deletable/terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
