@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from app import parsing
 from app import util
+from typing import Union
 from .resource import Resource
 import boto3
 
@@ -111,14 +111,14 @@ class Volume(Resource):
                       throughput=volume.throughput)
 
     # Delete/terminate an EBS volume
-    def terminate_resource(self, dryrun: bool):
+    def terminate_resource(self, dryrun: bool) -> Union [None, str]:
         print(f'Deleting volume: {str(self.resource_id)}...')
         ec2 = boto3.client('ec2', region_name=self.region_name)
         try:
             if not dryrun:
                 response = ec2.delete_volume(VolumeId=self.resource_id)
                 print(f'Response from delete_volumes: {str(response)}')
-            return True
+            return None
         except Exception as e:
             print(f'Failure when calling delete_volumes: {str(e)}')
             return str(e)

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from app import parsing
 from app import util
+from typing import Union
 from .resource import Resource
 from .volume import estimate_monthly_ebs_storage_price
 import boto3
@@ -123,14 +124,14 @@ class Instance(Resource):
                         throughput=instance.throughput)
 
     # Terminate an EC2 instance
-    def terminate_resource(self, dryrun: bool):
+    def terminate_resource(self, dryrun: bool) -> Union[None, str]:
         print(f'Terminating instance: {str(self.resource_id)}...')
         ec2 = boto3.client('ec2', region_name=self.region_name)
         try:
             if not dryrun:
                 response = ec2.terminate_instances(InstanceIds=[self.resource_id])
                 print(f'Response from terminate_instances: {str(response)}')
-            return True
+            return None
         except Exception as e:
             print(f'Failure when calling terminate_instances: {str(e)}')
             return str(e)

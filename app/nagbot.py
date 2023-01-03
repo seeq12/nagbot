@@ -117,7 +117,7 @@ class Nagbot(object):
                 message = f'I terminated the following {ec2_type}s: '
                 for r in resources_to_terminate:
                     response = r.terminate_resource(dryrun=dryrun)
-                    if response is not True:
+                    if response:
                         message = message + f"Error when attempting to terminate {r.make_resource_summary()}:" \
                                             f" {response}\n"
                     else:

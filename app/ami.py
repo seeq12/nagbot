@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
 import app.snapshot
-from app import parsing
 from app import util
+from typing import Union
 from .resource import Resource
 import boto3
 
@@ -112,7 +112,7 @@ class Ami(Resource):
                    snapshot_ids=snapshot_ids)
 
     # Delete/terminate an AMI
-    def terminate_resource(self, dryrun: bool):
+    def terminate_resource(self, dryrun: bool) -> Union[None, str]:
         print(f'Deleting AMI: {str(self.resource_id)} and any Snapshots it is composed of ...')
         ec2 = boto3.resource('ec2', region_name=self.region_name)
         image = ec2.Image(self.resource_id)
@@ -125,7 +125,7 @@ class Ami(Resource):
             return str(e)
 
         # Delete Snapshots making up the AMI once the AMI is deleted
-        errors = ""
+        errors = []
         if not dryrun:
             for snapshot_id in self.snapshot_ids:
                 snapshot = ec2.Snapshot(snapshot_id)
@@ -134,8 +134,8 @@ class Ami(Resource):
                     snapshot.delete()  # delete() returns None
                 except Exception as e:
                     print(f'Failure when calling snapshot.delete(): {str(e)}')
-                    errors += f"{str(e)}\n"
-        return errors if errors.strip() else True
+                    errors.append(str(e))
+        return '\n'.join(errors) if errors else None
 
     # Check if an ami is deletable/terminatable
     def can_be_terminated(self, today_date=util.TODAY_YYYY_MM_DD):
