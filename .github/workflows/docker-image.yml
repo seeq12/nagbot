@@ -12,7 +12,7 @@ jobs:
       with:
         image: nagbot
         addTimestamp: true
-        registry: docker.io/library
+        registry: docker.io/${{ secrets.DOCKER_USERNAME }}
         dockerfile: Dockerfile
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
