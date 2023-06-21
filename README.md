@@ -36,7 +36,7 @@ Keeper [here]
 (https://keepersecurity.
 com/vault/#detail/AUj3FYXz44uON4CVQSTKMQ).
 
-# Releasing New Versions (Seeq Employees)
+# Releasing New Versions
 
 Update the version at the top of nagbot.py to vX.Y.Z, commit, and push your changes
 
@@ -48,21 +48,15 @@ git tag vX.Y.Z
 git push --tags
 ```
 
-Wait for GitHub Actions to publish the new tag to [JFrog](https://seeq.jfrog.io/ui/packages/docker:%2F%2Fnagbot)
+Wait for GitHub Actions to publish the new tag to DockerHub
 
-For access to JFrog, see the [JFrog Confluence Page](https://seeq.atlassian.net/wiki/spaces/SQ/pages/2266562701/JFrog)
+## Deploying (Seeq Employees)
 
-Promote to `prod` using:
-
-```sh
-jfrog rt docker-promote nagbot nagbot-docker-dev-local nagbot-docker-prod-local --copy=true --source-tag=vX.Y.Z
-```
-
-Next, apply the newly created 'prod' image's tag to the NagBot Job in the build infra cluster. To do this, check out 
+Next, apply the newly created image's tag to the NagBot Job in the build infra cluster. To do this, check out 
 the [devops](https://github.com/seeq12/devops) repo, create a new branch, then update the docker tag in
 `devops/devops/build-infra-cluster/nagbot/jobs.yaml`. After connecting to the build infra cluster by following 
 instructions [How to Access the Build Infra Cluster](https://seeq.atlassian.net/wiki/spaces/SQ/pages/2317386552/How+to+Access+the+Dev-Infra+Cluster), apply the updated version to the cluster using: 
 ```sh
 kubectl apply -f devops/devops/build-infra-cluster/nagbot/jobs.yaml
 ```
-Finally, create a PR with the updated jfrog version in the devops repo.
+Finally, create a PR with the updated nagbot version in the devops repo.
