@@ -10,9 +10,9 @@ jobs:
     - uses: actions/checkout@v2
     - uses: mr-smithers-excellent/docker-build-push@v5
       with:
-        image: nagbot-docker-dev-local/nagbot
+        image: nagbot
         addTimestamp: true
-        registry: seeq.jfrog.io
+        registry: docker.io/library
         dockerfile: Dockerfile
-        username: ${{ secrets.JFROG_USERNAME }}
-        password: ${{ secrets.JFROG_TOKEN }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
