@@ -8,11 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: mr-smithers-excellent/docker-build-push@v5
+    - uses: mr-smithers-excellent/docker-build-push@v6
       with:
-        image: nagbot
+        image: ${{ secrets.DOCKERHUB_USERNAME }}/nagbot
         addTimestamp: true
-        registry: docker.io/${{ secrets.DOCKERHUB_USERNAME }}
+        registry: docker.io
         dockerfile: Dockerfile
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
