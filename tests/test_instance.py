@@ -8,7 +8,8 @@ from app.instance import Instance
 class TestInstance(unittest.TestCase):
     @staticmethod
     def setup_instance(state: str, stop_after: str = '', terminate_after: str = '',
-                       stop_after_tag_name: str = '', terminate_after_tag_name: str = ''):
+                       stop_after_tag_name: str = '', terminate_after_tag_name: str = '',
+                       nagbot_state: str = '', eks_nodegroup_name: str = ''):
         return Instance(region_name='us-east-1',
                         resource_id='abc123',
                         state=state,
@@ -24,8 +25,8 @@ class TestInstance(unittest.TestCase):
                         stop_after=stop_after,
                         terminate_after=terminate_after,
                         contact='stephen',
-                        nagbot_state='',
-                        eks_nodegroup_name='',
+                        nagbot_state=nagbot_state,
+                        eks_nodegroup_name=eks_nodegroup_name,
                         stop_after_tag_name=stop_after_tag_name,
                         terminate_after_tag_name=terminate_after_tag_name,
                         nagbot_state_tag_name='NagbotState',
@@ -191,6 +192,83 @@ class TestInstance(unittest.TestCase):
 
         mock_client.assert_called_once_with('ec2', region_name=mock_instance.region_name)
         mock_ec2.terminate_instances.assert_called_once_with(InstanceIds=[mock_instance.resource_id])
+
+    def test_get_stopped_date(self):
+        """Test parsing of stopped date from nagbot_state tag"""
+        # Test various formats
+        instance1 = self.setup_instance(state='stopped', nagbot_state='Stopped on 2023-06-15')
+        instance2 = self.setup_instance(state='stopped', nagbot_state='stopped on 2023-05-20')
+        instance3 = self.setup_instance(state='stopped', nagbot_state='2023-04-10')
+        instance4 = self.setup_instance(state='stopped', nagbot_state='')
+        instance5 = self.setup_instance(state='stopped', nagbot_state='Invalid format')
+        instance6 = self.setup_instance(state='running', nagbot_state='Stopped on 2023-06-15')
+        
+        from datetime import datetime
+        
+        # Should parse correctly for stopped instances
+        assert instance1.get_stopped_date() == datetime(2023, 6, 15)
+        assert instance2.get_stopped_date() == datetime(2023, 5, 20)
+        assert instance3.get_stopped_date() == datetime(2023, 4, 10)
+        
+        # Should return None for invalid cases (empty nagbot_state, invalid format, running instance)
+        assert instance4.get_stopped_date() is None
+        assert instance5.get_stopped_date() is None
+        assert instance6.get_stopped_date() is None  # Running instance should return None
+
+    def test_is_stopped_for_extended_period(self):
+        """Test checking if instance has been stopped for extended period"""
+        from datetime import datetime, timedelta
+        
+        # Create instances with different stopped dates
+        today = datetime.now()
+        seven_months_ago = today - timedelta(days=7 * 30)  # 7 months ago
+        five_months_ago = today - timedelta(days=5 * 30)   # 5 months ago
+        
+        # Instance stopped 7 months ago (should be flagged)
+        old_stopped = self.setup_instance(
+            state='stopped', 
+            nagbot_state=f'Stopped on {seven_months_ago.strftime("%Y-%m-%d")}'
+        )
+        
+        # Instance stopped 5 months ago (should not be flagged)
+        recent_stopped = self.setup_instance(
+            state='stopped', 
+            nagbot_state=f'Stopped on {five_months_ago.strftime("%Y-%m-%d")}'
+        )
+        
+        # Running instance (should not be flagged)
+        running = self.setup_instance(
+            state='running', 
+            nagbot_state=f'Stopped on {seven_months_ago.strftime("%Y-%m-%d")}'
+        )
+        
+        # EKS nodegroup instance (should not be flagged)
+        eks_stopped = self.setup_instance(
+            state='stopped', 
+            nagbot_state=f'Stopped on {seven_months_ago.strftime("%Y-%m-%d")}',
+            eks_nodegroup_name='my-nodegroup'
+        )
+        
+        # Instance with no nagbot_state (should not be flagged)
+        no_state = self.setup_instance(
+            state='stopped', 
+            nagbot_state=''
+        )
+        
+        # Instance with null/empty terminate_after tag (should still be flagged if stopped >6 months)
+        null_terminate_after = self.setup_instance(
+            state='stopped', 
+            nagbot_state=f'Stopped on {seven_months_ago.strftime("%Y-%m-%d")}',
+            terminate_after=''
+        )
+        
+        # Test the method
+        assert old_stopped.is_stopped_for_extended_period() is True
+        assert recent_stopped.is_stopped_for_extended_period() is False
+        assert running.is_stopped_for_extended_period() is False
+        assert eks_stopped.is_stopped_for_extended_period() is False
+        assert no_state.is_stopped_for_extended_period() is False
+        assert null_terminate_after.is_stopped_for_extended_period() is True  # Should still be flagged
 
 
 if __name__ == '__main__':
