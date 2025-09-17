@@ -87,6 +87,23 @@ class Nagbot(object):
                                      dryrun=dryrun)
                 else:
                     summary_msg += f'No {ec2_type}s are due to be stopped at this time.\n'
+        
+        # Check for long-stopped instances on 1st and 15th of month
+        if (TODAY_YYYY_MM_DD.endswith('-01') or TODAY_YYYY_MM_DD.endswith('-15')):
+            instances = Instance.list_resources()
+            long_stopped_instances = [r for r in instances if r.is_stopped_for_extended_period()]
+            
+            summary_msg += f'\n*Long-stopped instances (>6 months):*\n'
+            if len(long_stopped_instances) > 0:
+                summary_msg += f'We have {len(long_stopped_instances)} instances that have been stopped for more than 6 months.\n'
+                summary_msg += f'Please review if these are still needed:\n'
+                for r in long_stopped_instances:
+                    contact = sqslack.lookup_user_by_email(r.contact)
+                    stopped_date_str = r.get_stopped_date().strftime('%Y-%m-%d') if r.get_stopped_date() else 'Unknown'
+                    summary_msg += f'{r.make_resource_summary()}, Stopped since {stopped_date_str}, Contact={contact}\n'
+            else:
+                summary_msg += f'No instances have been stopped for more than 6 months.\n'
+        
         workbook = spreadsheet.add_summary_worksheet_to_workbook(workbook, total_resource_cost_dict)
         s3_file_url = spreadsheet.upload_spreadsheet_to_s3(filename, workbook)
         summary_msg += f'\nAn Excel file containing resource data can be downloaded from the ' \

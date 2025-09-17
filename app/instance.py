@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+import re
 
 from app import parsing
 from app import util
@@ -197,3 +199,46 @@ class Instance(Resource):
     @staticmethod
     def has_stop_status():
         return True
+
+    def is_stopped_for_extended_period(self, months=6):
+        """Check if instance has been stopped for more than specified months"""
+        if self.state != 'stopped' or not self.nagbot_state:
+            return False
+        
+        # Exclude EKS nodegroup instances
+        if len(self.eks_nodegroup_name) > 0:
+            return False
+        
+        # Parse date from nagbot_state (format: "Stopped on YYYY-MM-DD")
+        stopped_date = self.get_stopped_date()
+        if not stopped_date:
+            return False
+        
+        # Calculate if it's been more than specified months
+        today = datetime.now()
+        months_ago = today - timedelta(days=months * 30)  # Approximate months as 30 days
+        
+        return stopped_date <= months_ago
+
+    def get_stopped_date(self):
+        """Extract the stopped date from nagbot_state tag"""
+        if not self.nagbot_state or self.state != 'stopped':
+            return None
+        
+        # Parse date from nagbot_state (format: "Stopped on YYYY-MM-DD")
+        # Handle various possible formats
+        date_patterns = [
+            r'Stopped on (\d{4}-\d{2}-\d{2})',
+            r'stopped on (\d{4}-\d{2}-\d{2})',
+            r'(\d{4}-\d{2}-\d{2})'
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, self.nagbot_state)
+            if match:
+                try:
+                    return datetime.strptime(match.group(1), '%Y-%m-%d')
+                except ValueError:
+                    continue
+        
+        return None
