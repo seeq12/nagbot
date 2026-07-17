@@ -36,27 +36,17 @@ Keeper [here]
 (https://keepersecurity.
 com/vault/#detail/AUj3FYXz44uON4CVQSTKMQ).
 
-# Releasing New Versions
+# Deploying (Seeq Employees)
 
-Update the version at the top of nagbot.py to vX.Y.Z, commit, and push your changes
+**A merge to `master` is a deploy.** GitHub Actions builds the image and Flux rolls it out to the production Nagbot job on the `use1-i` cluster automatically — there is no separate devops PR or manual `kubectl apply`. Treat every merge as shipping to production; the next scheduled Nagbot run will use the new image.
 
-Tag the version in git:
+Do not merge a PR until it is ready to run in production. That includes any dependent changes outside this repo (for example changes in the devops repo, or AWS/Slack configuration) that the Nagbot change needs. If those are not ready, keep the PR open (or draft) until they are.
 
-```sh
-git fetch && git switch --detach origin/master
-git tag vX.Y.Z
-git push --tags
-```
+After a PR merges to `master`, GitHub Actions builds and pushes the Nagbot image to Docker Hub with two tags:
 
-Wait for GitHub Actions to publish the new tag to DockerHub
+- `<sha_short>` — short git SHA (e.g. `c9f970a`)
+- `<UTC-timestamp>-<sha_short>` — Flux-compatible tag (e.g. `20260716180852-c9f970a`)
 
-## Deploying (Seeq Employees)
+Flux Image Automation on the `use1-i` cluster watches `docker.io/seeqsaas/nagbot`, selects the newest timestamp tag, and commits it to `sk8park/development/aws-internal/use1-i/nagbot/image-tag.yaml` on the devops `develop` branch. That commit triggers the existing Terragrunt apply workflow, which rolls out the new image. No manual devops tag-bump PR is required.
 
-Next, apply the newly created image's tag to the NagBot Job in the build infra cluster. To do this, check out 
-the [devops](https://github.com/seeq12/devops) repo, create a new branch, then update the docker tag in
-`devops/devops/build-infra-cluster/nagbot/jobs.yaml`. After connecting to the build infra cluster by following 
-instructions [How to Access the Build Infra Cluster](https://seeq.atlassian.net/wiki/spaces/SQ/pages/2317386552/How+to+Access+the+Dev-Infra+Cluster), apply the updated version to the cluster using: 
-```sh
-kubectl apply -f devops/devops/build-infra-cluster/nagbot/jobs.yaml
-```
-Finally, create a PR with the updated nagbot version in the devops repo.
+For rollback and more detail, see [Flux Image Automation (use1-i tooling cluster)](https://seeq.atlassian.net/wiki/spaces/SQ/pages/5307432970).
