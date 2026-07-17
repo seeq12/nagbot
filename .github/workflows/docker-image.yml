@@ -2,16 +2,25 @@ name: Docker Image
 
 on:
   push:
+    branches:
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set outputs
+      id: vars
+      run: |
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "build_tag=$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
     - uses: mr-smithers-excellent/docker-build-push@v6
       with:
         image: ${{ secrets.DOCKERHUB_USERNAME }}/nagbot
-        addTimestamp: true
+        tags: ${{ steps.vars.outputs.sha_short }},${{ steps.vars.outputs.build_tag }}
         registry: docker.io
         dockerfile: Dockerfile
         username: ${{ secrets.DOCKERHUB_USERNAME }}
